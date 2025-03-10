@@ -37,13 +37,13 @@ def get_N_sample_ids(total=TOTAL_DOCUMENTS, N=200):
     random.shuffle(sampled_ids)
 
     train_ids = sampled_ids[num_validation:]
-    val_ids = sampled_ids[:num_validation]
 
-    return train_ids, val_ids, sampled_ids
+    return train_ids, sampled_ids
 
 
 def prepare_data(N: int):
-    train_ids, val_ids, sampled_ids = get_N_sample_ids(total=TOTAL_DOCUMENTS, N=N)
+    count = 0
+    train_ids, sampled_ids = get_N_sample_ids(total=TOTAL_DOCUMENTS, N=N)
     train_pids, val_pids = set(), set()
 
     queries = get_queries()
@@ -51,11 +51,12 @@ def prepare_data(N: int):
     train_data, val_data = {}, {}
 
     with gzip.open(HARD_NEGATIVES, 'rt', encoding='utf8') as f_in:
-        for line in tqdm(f_in, total=TOTAL_DOCUMENTS):
+        for idx, line in tqdm(enumerate(f_in), total=TOTAL_DOCUMENTS):
             data = json.loads(line)
             qid = int(data["qid"])
 
-            if qid in sampled_ids:
+            if idx in sampled_ids:
+                count += 1
                 pos_pids = [item["pid"] for item in data["pos"]]
                 pos_min_ce_score = min([item["ce-score"] for item in data["pos"]])
                 ce_score_threshold = pos_min_ce_score - CE_SCORE_MARGIN
@@ -68,7 +69,7 @@ def prepare_data(N: int):
                             neg_pids.add(item["pid"])
                 
                 if len(pos_pids) > 0 and len(neg_pids) > 0:
-                    if qid in train_ids:
+                    if idx in train_ids:
                         train_pids.update(pos_pids)
                         train_pids.update(neg_pids)
                         train_data[qid] = {"query": queries[str(qid)], "pos": pos_pids, "neg": list(neg_pids)}
@@ -87,4 +88,4 @@ def prepare_data(N: int):
 
 
 if __name__ == '__main__':
-    prepare_data(N=500)
+    prepare_data(N=200)
