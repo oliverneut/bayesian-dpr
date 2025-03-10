@@ -4,26 +4,26 @@ import os
 from tqdm import tqdm
 import random
 from typing import Dict
+from pathlib import PosixPath
 from utils.config import (
     TOTAL_DOCUMENTS,
     VALIDATION_RATIO,
     CE_SCORE_MARGIN,
     HARD_NEGATIVES,
-    PREPARED_DIR,
-    CORPUS_FILE
+    PREPARED_DIR
 )
 
 from data_loaders import get_queries, get_corpus
 
 
-def save_queries(data, data_dir, split):
+def save_queries(data: Dict, data_dir: PosixPath, split: str):
     with open(f'{data_dir}/queries-{split}.jsonl', 'wt', encoding='utf8') as f_out:
         for k, v in tqdm(data.items(), total=len(data.keys())):
             json.dump({"qid": k, "query": v["query"], "pos": v["pos"], "neg": v["neg"]}, f_out)
             f_out.write("\n")
 
 
-def save_corpus(data, pids, data_dir, split):
+def save_corpus(data: Dict, pids: set, data_dir: PosixPath, split: str):
     with open(f'{data_dir}/corpus-{split}.jsonl', 'wt', encoding='utf8') as f_out:
         for k, v in tqdm(data.items(), total=len(data.keys())):
             if k in pids:
@@ -31,7 +31,7 @@ def save_corpus(data, pids, data_dir, split):
                 f_out.write("\n")
 
 
-def get_N_sample_ids(total=TOTAL_DOCUMENTS, N=200):
+def get_N_sample_ids(total: int=TOTAL_DOCUMENTS, N: int=200):
     sampled_ids = random.sample(range(total), N)
     num_validation = int(VALIDATION_RATIO * N)
     random.shuffle(sampled_ids)
