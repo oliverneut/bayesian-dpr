@@ -13,6 +13,7 @@ from evaluation import Evaluator
 from indexing import FaissIndex
 from encoding import encode_corpus
 from utils.data_utils import get_query_file
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +111,7 @@ def main(args):
         student_model.train()
         epoch_loss = 0.0
         
-        for qry, pos_psg, neg_psg in train_dataloader:
+        for qry, pos_psg, neg_psg in tqdm(train_dataloader, desc="Train loop"):
             # Process query batch
             qry_encoded = student_tokenizer(
                 qry, padding="max_length", truncation=True, 
