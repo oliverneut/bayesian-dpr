@@ -81,7 +81,8 @@ def main(args):
     reg_weight = 1.0/ len(train_dataloader)
     prior_scale = 1.0
     wishart_scale = 0.1
-    student_tokenizer, student_model = vbll_model_factory(args.model_name, device, reg_weight, prior_scale, wishart_scale)
+    paremeterization = 'diagonal'
+    student_tokenizer, student_model = vbll_model_factory(args.model_name, reg_weight, paremeterization, prior_scale, wishart_scale, device)
     
     # Print model sizes
     teacher_params = sum(p.numel() for p in teacher_model.parameters())

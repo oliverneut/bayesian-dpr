@@ -18,14 +18,16 @@ def model_factory(model_name, device):
     if model_name.startswith("bert"):
         retriever_class = BERTRetriever
     
-    tokenizer, model = retriever_class.build(get_hf_model_id(model_name), device=device)
+    hf_model_id = get_hf_model_id(model_name)
+    tokenizer, model = retriever_class.build(hf_model_id, device=device)
 
     return tokenizer, model
 
 
-def vbll_model_factory(model_name, device, reg_weight, prior_scale, wishart_scale):
+def vbll_model_factory(model_name, reg_weight, parameterization, prior_scale, wishart_scale, device):
     retriever_class = VBLLRetriever
-    tokenizer, model = retriever_class.build(get_hf_model_id(model_name), reg_weight, prior_scale, wishart_scale, device=device)
+    hf_model_id = get_hf_model_id(model_name)
+    tokenizer, model = retriever_class.build(hf_model_id, reg_weight, parameterization, prior_scale, wishart_scale, device=device)
 
     return tokenizer, model
 
@@ -82,11 +84,11 @@ class BERTRetriever(Retriever):
     
 
 class VBLLRetriever(Retriever):
-    def __init__(self, backbone, reg_weight, prior_scale, wishart_scale, device="cpu"):
+    def __init__(self, backbone, reg_weight, parameterization, prior_scale, wishart_scale, device="cpu"):
         super().__init__(backbone, device)
         disable_grad(self.backbone.embeddings)
         dim = self.backbone.config.hidden_size
-        self.vbll_layer = vbll.Regression(dim, dim, reg_weight, parameterization='diagonal', prior_scale=prior_scale, wishart_scale=wishart_scale)
+        self.vbll_layer = vbll.Regression(dim, dim, reg_weight, parameterization, prior_scale, wishart_scale)
         self.vbll_layer.to(device)
 
     def cls_pooling(self, model_output, attention_mask):
@@ -104,7 +106,7 @@ class VBLLRetriever(Retriever):
         return output
     
     @classmethod
-    def build(cls, model_name, reg_weight, prior_scale, wishart_scale, device="cpu", **hf_kwargs):
+    def build(cls, model_name, reg_weight, parameterization, prior_scale, wishart_scale, device="cpu", **hf_kwargs):
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         backbone = AutoModel.from_pretrained(model_name, **hf_kwargs)
-        return tokenizer, cls(backbone, reg_weight, prior_scale, wishart_scale, device=device)
+        return tokenizer, cls(backbone, reg_weight, parameterization, prior_scale, wishart_scale, device=device)
