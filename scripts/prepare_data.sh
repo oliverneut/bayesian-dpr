@@ -16,5 +16,4 @@ source activate bret
 
 cd $HOME/bayesian-dpr
 
-python src/prepare_data.py \
-    --num_samples 200
+python src/prepare_data.py

@@ -1,4 +1,4 @@
-import argparse
+from omegaconf import OmegaConf
 import gzip
 import json
 import os
@@ -32,9 +32,9 @@ def save_corpus(data: Dict, pids: set, data_dir: PosixPath, split: str):
                 f_out.write("\n")
 
 
-def get_N_sample_ids(total: int=TOTAL_DOCUMENTS, N: int=200):
+def get_N_sample_ids(total: int=TOTAL_DOCUMENTS, N: int=200, val_ratio: float=0.1):
     sampled_ids = random.sample(range(total), N)
-    num_validation = int(VALIDATION_RATIO * N)
+    num_validation = int(val_ratio * N)
     random.shuffle(sampled_ids)
 
     train_ids = sampled_ids[num_validation:]
@@ -42,9 +42,9 @@ def get_N_sample_ids(total: int=TOTAL_DOCUMENTS, N: int=200):
     return train_ids, sampled_ids
 
 
-def prepare_data(N: int):
+def prepare_data(N: int, val_ratio: float=0.1):
     count = 0
-    train_ids, sampled_ids = get_N_sample_ids(total=TOTAL_DOCUMENTS, N=N)
+    train_ids, sampled_ids = get_N_sample_ids(total=TOTAL_DOCUMENTS, N=N, val_ratio=val_ratio)
     train_pids, val_pids = set(), set()
 
     queries = get_queries()
@@ -89,7 +89,5 @@ def prepare_data(N: int):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--num_samples", type=int, default=TOTAL_DOCUMENTS)
-    args = parser.parse_args()
-    prepare_data(N=200)
+    args = OmegaConf.load('src/utils/config.yml').prepare_data
+    prepare_data(N=args.num_samples, val_ratio=args.val_ratio)

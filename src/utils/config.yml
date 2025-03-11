@@ -10,3 +10,7 @@ knowledge_distillation:
   max_qry_len: 32
   max_psg_len: 256
   output_dir: output/distilled_models
+
+prepare_data:
+  num_samples: 502939
+  val_ratio: 0.1
