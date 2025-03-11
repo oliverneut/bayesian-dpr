@@ -86,7 +86,7 @@ class VBLLRetriever(Retriever):
         super().__init__(backbone, device)
         disable_grad(self.backbone.embeddings)
         dim = self.backbone.config.hidden_size
-        self.vbll_layer = vbll.Regression(dim, dim, reg_weight, prior_scale=prior_scale, wishart_scale=wishart_scale)
+        self.vbll_layer = vbll.Regression(dim, dim, reg_weight, parameterization='diagonal', prior_scale=prior_scale, wishart_scale=wishart_scale)
         self.vbll_layer.to(device)
 
     def cls_pooling(self, model_output, attention_mask):
