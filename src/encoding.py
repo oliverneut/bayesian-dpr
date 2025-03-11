@@ -17,6 +17,8 @@ def encode_corpus(corpus, tokenizer, encoder, device, method, num_samples=None, 
             if method == "bret":
                 psg_emb = encoder(psg_enc, num_samples=num_samples)
                 psg_emb = encode_passage_mean(psg_emb)
+            elif method == "vbll":
+                psg_emb = encoder(psg_enc).predictive.loc
             else:
                 psg_emb = encoder(psg_enc)
             psg_embs.append(psg_emb.detach().cpu())

@@ -149,7 +149,7 @@ def main(args):
         
         # Evaluate on validation set
         student_model.eval()
-        psg_embs = encode_corpus(val_corpus, student_tokenizer, student_model, device, "dpr")
+        psg_embs = encode_corpus(val_corpus, student_tokenizer, student_model, device, method="vbll")
         index = FaissIndex.build(psg_embs)
         evaluator = Evaluator(
             student_tokenizer,
