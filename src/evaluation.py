@@ -54,6 +54,8 @@ class Evaluator:
                 if self.method == "bret":
                     qry_emb = self.model(qry_enc, num_samples=num_samples)
                     qry_emb = encode_query_mean(qry_emb)
+                if self.method == "vbll":
+                    qry_emb = self.model(qry_enc).predictive.loc
                 else:
                     qry_emb = self.model(qry_enc)
                 scores, indices = self.index.search(qry_emb, k)

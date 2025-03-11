@@ -63,6 +63,8 @@ def main(args):
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
+
+    k = args.num_samples
         
     # Load data
     logger.info("Loading data...")
@@ -154,17 +156,17 @@ def main(args):
         evaluator = Evaluator(
             student_tokenizer,
             student_model,
-            "dpr",
+            "vbll",
             device,
             index=index,
             metrics={"ndcg", "recip_rank"},
         )
         
-        metrics = evaluator.evaluate_retriever(val_queries, qrels, k=20)
-        ndcg = metrics["nDCG@20"]
-        mrr = metrics["MRR@20"]
+        metrics = evaluator.evaluate_retriever(val_queries, qrels, k=k)
+        ndcg = metrics[f"nDCG@{k}"]
+        mrr = metrics[f"MRR@{k}"]
         
-        logger.info(f"Epoch {epoch}/{args.num_epochs} - Loss: {epoch_loss/len(train_dataloader):.4f} - nDCG@20: {ndcg:.4f} - MRR@20: {mrr:.4f}")
+        logger.info(f"Epoch {epoch}/{args.num_epochs} - Loss: {epoch_loss/len(train_dataloader):.4f} - nDCG@{k}: {ndcg:.4f} - MRR@{k}: {mrr:.4f}")
         
         # Save best model
         if ndcg > best_ndcg:
