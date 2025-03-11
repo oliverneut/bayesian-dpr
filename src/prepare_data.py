@@ -8,14 +8,14 @@ from typing import Dict
 from pathlib import PosixPath
 from utils.config import (
     TOTAL_DOCUMENTS,
-    VALIDATION_RATIO,
     CE_SCORE_MARGIN,
     HARD_NEGATIVES,
     PREPARED_DIR
 )
 
-from data_loaders import get_queries, get_corpus
+random.seed(42)
 
+from data_loaders import get_queries, get_corpus
 
 def save_queries(data: Dict, data_dir: PosixPath, split: str):
     with open(f'{data_dir}/queries-{split}.jsonl', 'wt', encoding='utf8') as f_out:
@@ -32,19 +32,16 @@ def save_corpus(data: Dict, pids: set, data_dir: PosixPath, split: str):
                 f_out.write("\n")
 
 
-def get_N_sample_ids(total: int=TOTAL_DOCUMENTS, N: int=200, val_ratio: float=0.1):
-    sampled_ids = random.sample(range(total), N)
-    num_validation = int(val_ratio * N)
-    random.shuffle(sampled_ids)
-
-    train_ids = sampled_ids[num_validation:]
+def get_N_sample_ids(N: int=200, val_size: int=100):
+    random.seed(42)
+    sampled_ids = random.sample(range(TOTAL_DOCUMENTS), N)
+    train_ids = sampled_ids[val_size:]
 
     return train_ids, sampled_ids
 
 
-def prepare_data(N: int, val_ratio: float=0.1):
-    count = 0
-    train_ids, sampled_ids = get_N_sample_ids(total=TOTAL_DOCUMENTS, N=N, val_ratio=val_ratio)
+def prepare_data(N: int, val_size: int=100):
+    train_ids, sampled_ids = get_N_sample_ids(N=N, val_size=val_size)
     train_pids, val_pids = set(), set()
 
     queries = get_queries()
@@ -57,7 +54,6 @@ def prepare_data(N: int, val_ratio: float=0.1):
             qid = int(data["qid"])
 
             if idx in sampled_ids:
-                count += 1
                 pos_pids = [item["pid"] for item in data["pos"]]
                 pos_min_ce_score = min([item["ce-score"] for item in data["pos"]])
                 ce_score_threshold = pos_min_ce_score - CE_SCORE_MARGIN
@@ -90,4 +86,4 @@ def prepare_data(N: int, val_ratio: float=0.1):
 
 if __name__ == '__main__':
     args = OmegaConf.load('src/utils/config.yml').prepare_data
-    prepare_data(N=args.num_samples, val_ratio=args.val_ratio)
+    prepare_data(N=args.num_samples, val_size=args.val_size)

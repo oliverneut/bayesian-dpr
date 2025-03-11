@@ -13,4 +13,4 @@ knowledge_distillation:
 
 prepare_data:
   num_samples: 502939
-  val_ratio: 0.1
+  val_size: 100

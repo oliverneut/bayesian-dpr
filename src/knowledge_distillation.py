@@ -71,7 +71,7 @@ def main(args):
     logger.info("Loading data...")
     train_dataloader = get_dataloader(get_query_file(split="train"), batch_size=args.batch_size, shuffle=True)
     val_queries = get_query_dataloader(get_query_file(split="val"),  batch_size=1, shuffle=False)
-    val_corpus = get_corpus_dataloader("data/prepared/corpus-val.jsonl",  batch_size=1, shuffle=False)
+    val_corpus = get_corpus_dataloader("data/prepared/corpus-val.jsonl",  batch_size=args.batch_size, shuffle=False)
     qrels = get_qrels()
 
     # Load teacher model
