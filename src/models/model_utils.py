@@ -87,6 +87,7 @@ class VBLLRetriever(Retriever):
         disable_grad(self.backbone.embeddings)
         dim = self.backbone.config.hidden_size
         self.vbll_layer = vbll.Regression(dim, dim, reg_weight, prior_scale=prior_scale, wishart_scale=wishart_scale)
+        self.vbll_layer.to(device)
 
     def cls_pooling(self, model_output, attention_mask):
         token_embeddings = model_output.last_hidden_state

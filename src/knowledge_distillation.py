@@ -1,4 +1,4 @@
-import argparse
+from omegaconf import OmegaConf
 import logging
 import os
 import torch
@@ -71,7 +71,7 @@ def main(args):
     val_corpus = get_corpus_dataloader("data/prepared/corpus-val.jsonl",  batch_size=1, shuffle=False)
     qrels = get_qrels()
 
-        # Load teacher model
+    # Load teacher model
     logger.info(f"Loading teacher model: sentence-transformers/msmarco-bert-base-dot-v5")
     teacher_tokenizer, teacher_model = model_factory("bert-base-msmarco", device)
     teacher_model.eval()  # Set teacher to evaluation mode
@@ -175,18 +175,5 @@ def main(args):
     logger.info("Training completed!")
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_id", choices=["msmarco"], default="msmarco")
-    parser.add_argument("--model_name", default="bert-tiny")
-    parser.add_argument("--num_samples", type=int, default=10000)
-    parser.add_argument("--batch_size", type=int, default=32)
-    parser.add_argument("--num_epochs", type=int, default=4)
-    parser.add_argument("--lr", type=float, default=5e-6)
-    parser.add_argument("--min_lr", type=float, default=5e-8)
-    parser.add_argument("--warmup_rate", type=float, default=0.1)
-    parser.add_argument("--temperature", type=float, default=2.0)
-    parser.add_argument("--max_qry_len", type=int, default=32)
-    parser.add_argument("--max_psg_len", type=int, default=256)
-    parser.add_argument("--output_dir", default="output/distilled_models")
-    args = parser.parse_args()
+    args = OmegaConf.load('src/utils/config.yml').knowledge_distillation
     main(args)

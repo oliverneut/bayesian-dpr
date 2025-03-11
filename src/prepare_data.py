@@ -1,3 +1,4 @@
+import argparse
 import gzip
 import json
 import os
@@ -88,4 +89,7 @@ def prepare_data(N: int):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--num_samples", type=int, default=TOTAL_DOCUMENTS)
+    args = parser.parse_args()
     prepare_data(N=200)

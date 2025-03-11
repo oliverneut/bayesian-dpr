@@ -3,3 +3,4 @@ src/__pycache__/
 __pycache__/
 src/models/__pycache__/
 src/utils/__pycache__/
+scripts/slurm/
