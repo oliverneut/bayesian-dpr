@@ -110,8 +110,10 @@ def main(args):
     for epoch in range(1, args.num_epochs + 1):
         student_model.train()
         epoch_loss = 0.0
+
+        progress_bar = tqdm(train_dataloader, desc="Train loop")
         
-        for qry, pos_psg, neg_psg in tqdm(train_dataloader, desc="Train loop"):
+        for qry, pos_psg, neg_psg in progress_bar:
             # Process query batch
             qry_encoded = student_tokenizer(
                 qry, padding="max_length", truncation=True, 
@@ -149,6 +151,7 @@ def main(args):
             scheduler.step()
             
             epoch_loss += loss.item()
+            progress_bar.set_postfix({"Loss": loss.item()})
         
         # Evaluate on validation set
         student_model.eval()
