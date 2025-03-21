@@ -9,6 +9,7 @@ from torch.optim.lr_scheduler import LinearLR, SequentialLR
 
 from models.model_utils import model_factory, vbll_model_factory
 from data_loaders import get_dataloader, get_qrels, get_corpus_dataloader, get_query_dataloader
+from losses import BinaryPassageRetrievalLoss
 from evaluation import Evaluator
 from indexing import FaissIndex
 from encoding import encode_corpus
@@ -66,6 +67,7 @@ def main(args):
     logger.info(f"Using device: {device}")
 
     k = args.num_samples
+    task_loss_func = BinaryPassageRetrievalLoss()
         
     # Load data
     logger.info("Loading data...")
@@ -115,34 +117,46 @@ def main(args):
         
         for qry, pos_psg, neg_psg in progress_bar:
             # Process query batch
-            qry_encoded = student_tokenizer(
+            qry_enc = student_tokenizer(
                 qry, padding="max_length", truncation=True, 
                 max_length=args.max_qry_len, return_tensors="pt"
             ).to(device)
             
             # Process passage batches
-            passages = pos_psg + neg_psg
-            psg_encoded = student_tokenizer(
-                passages, padding="max_length", truncation=True,
+            pos_enc = student_tokenizer(
+                pos_psg, padding="max_length", truncation=True,
+                max_length=args.max_psg_len, return_tensors="pt"
+            ).to(device)
+
+            neg_enc = student_tokenizer(
+                neg_psg, padding="max_length", truncation=True,
                 max_length=args.max_psg_len, return_tensors="pt"
             ).to(device)
             
             # Forward pass with teacher model (no gradient)
             with torch.no_grad():
-                teacher_qry_emb = teacher_model(qry_encoded)
-                teacher_psg_emb = teacher_model(psg_encoded)
+                teacher_qry_emb = teacher_model(qry_enc)
+                teacher_pos_emb = teacher_model(pos_enc)
+                teacher_neg_emb = teacher_model(neg_enc)
             
             # Forward pass with student model
             with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=True):
                 optimizer.zero_grad()
-                student_qry_emb = student_model(qry_encoded)
-                student_psg_emb = student_model(psg_encoded)
+                student_qry_emb = student_model(qry_enc)
+                student_pos_emb = student_model(pos_enc)
+                student_neg_emb = student_model(neg_enc)
                 
                 # Compute loss
                 qry_loss = student_qry_emb.train_loss_fn(teacher_qry_emb)
-                psg_loss = student_psg_emb.train_loss_fn(teacher_psg_emb)
+                pos_loss = student_pos_emb.train_loss_fn(teacher_pos_emb)
+                neg_loss = student_neg_emb.train_loss_fn(teacher_neg_emb)
 
-            loss = qry_loss + psg_loss
+                # task_loss = task_loss_func(student_qry_emb.predictive.loc, student_pos_emb.predictive.loc, student_neg_emb.predictive.loc)
+
+            kd_loss = qry_loss + pos_loss + neg_loss
+
+            # loss = kd_loss + task_loss
+            loss = kd_loss
                 
             # Backward pass and optimization
             scaler.scale(loss).backward()
