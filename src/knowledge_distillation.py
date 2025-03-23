@@ -152,17 +152,16 @@ def main(args):
                 neg_loss = student_neg_emb.train_loss_fn(teacher_neg_emb)
 
                 # task_loss = task_loss_func(student_qry_emb.predictive.loc, student_pos_emb.predictive.loc, student_neg_emb.predictive.loc)
-
-            kd_loss = qry_loss + pos_loss + neg_loss
-
-            # loss = kd_loss + task_loss
-            loss = kd_loss
+                kd_loss = qry_loss + pos_loss + neg_loss
+                # loss = kd_loss + task_loss
+                loss = kd_loss
                 
             # Backward pass and optimization
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
             scheduler.step()
+            torch.nn.utils.clip_grad_norm_(student_model.parameters(), 1)
             
             epoch_loss += loss.item()
             progress_bar.set_postfix({"Loss": loss.item()})
