@@ -165,11 +165,10 @@ def main(args):
             
             epoch_loss += loss.item()
             progress_bar.set_postfix({"Loss": loss.item()})
-            break
         
         # Evaluate on validation set
         student_model.eval()
-        psg_embs = encode_corpus(val_corpus, teacher_tokenizer, teacher_model, device, method="")
+        psg_embs, psg_ids = encode_corpus(val_corpus, teacher_tokenizer, teacher_model, device, method="")
         index = FaissIndex.build(psg_embs)
         evaluator = Evaluator(
             teacher_tokenizer,
@@ -178,6 +177,7 @@ def main(args):
             device,
             index=index,
             metrics={"ndcg", "recip_rank"},
+            psg_ids=psg_ids
         )
         
         metrics = evaluator.evaluate_retriever(val_queries, qrels, k=k)

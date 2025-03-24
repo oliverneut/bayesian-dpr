@@ -9,8 +9,9 @@ def encode_passage_mean(psg_emb):
 
 def encode_corpus(corpus, tokenizer, encoder, device, method, num_samples=None, max_psg_len=256):
     psg_embs = []
+    psg_ids = []
     with torch.no_grad():
-        for _, psg in corpus:
+        for psg_id, psg in corpus:
             psg_enc = tokenizer(
                 psg, padding="max_length", truncation=True, max_length=max_psg_len, return_tensors="pt"
             ).to(device)
@@ -22,5 +23,6 @@ def encode_corpus(corpus, tokenizer, encoder, device, method, num_samples=None, 
             else:
                 psg_emb = encoder(psg_enc)
             psg_embs.append(psg_emb.detach().cpu())
+            psg_ids += list(psg_id)
         psg_embs = torch.cat(psg_embs, dim=0)
-    return psg_embs
+    return psg_embs, psg_ids

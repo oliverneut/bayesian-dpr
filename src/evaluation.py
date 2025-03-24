@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class Evaluator:
-    def __init__(self, tokenizer, model, method, device, index=None, metrics=None):
+    def __init__(self, tokenizer, model, method, device, index=None, metrics=None, psg_ids=None):
         if metrics is None:
             metrics = {"ndcg", "recip_rank"}
         self.tokenizer = tokenizer
@@ -22,6 +22,7 @@ class Evaluator:
         self.device = device
         self.index = index
         self.metrics = metrics
+        self.psg_ids = psg_ids
 
     def evaluate_retriever(self, qry_data_loader, qrels, k=20, num_samples=None, max_qry_len=32, run_file=None):
         if run_file is not None and os.path.exists(run_file) and os.path.isfile(run_file):
@@ -59,10 +60,12 @@ class Evaluator:
                 else:
                     qry_emb = self.model(qry_enc)
                 scores, indices = self.index.search(qry_emb, k)
+                psg_indices = [self.psg_ids[idx] for idx in indices[0]]
+                
                 qid = str(qry_id.item())
                 run[qid] = {}
-                for score, psg_id in zip(scores[0], indices[0]):
-                    run[qid][str(psg_id)] = float(score)
+                for score, psg_id in zip(scores[0], psg_indices):
+                    run[qid][psg_id] = float(score)
         return run
 
     def _calculate_metrics(self, run, qrels, k=20):
