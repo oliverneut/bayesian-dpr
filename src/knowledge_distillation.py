@@ -140,40 +140,41 @@ def main(args):
                 teacher_neg_emb = teacher_model(neg_enc)
             
             # Forward pass with student model
-            with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=True):
-                optimizer.zero_grad()
-                student_qry_emb = student_model(qry_enc)
-                student_pos_emb = student_model(pos_enc)
-                student_neg_emb = student_model(neg_enc)
-                
-                # Compute loss
-                qry_loss = student_qry_emb.train_loss_fn(teacher_qry_emb)
-                pos_loss = student_pos_emb.train_loss_fn(teacher_pos_emb)
-                neg_loss = student_neg_emb.train_loss_fn(teacher_neg_emb)
+            # with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=True):
+            optimizer.zero_grad()
+            student_qry_emb = student_model(qry_enc)
+            student_pos_emb = student_model(pos_enc)
+            student_neg_emb = student_model(neg_enc)
+            
+            # Compute loss
+            qry_loss = student_qry_emb.train_loss_fn(teacher_qry_emb)
+            pos_loss = student_pos_emb.train_loss_fn(teacher_pos_emb)
+            neg_loss = student_neg_emb.train_loss_fn(teacher_neg_emb)
 
-                # task_loss = task_loss_func(student_qry_emb.predictive.loc, student_pos_emb.predictive.loc, student_neg_emb.predictive.loc)
-                kd_loss = qry_loss + pos_loss + neg_loss
-                # loss = kd_loss + task_loss
-                loss = kd_loss
+            # task_loss = task_loss_func(student_qry_emb.predictive.loc, student_pos_emb.predictive.loc, student_neg_emb.predictive.loc)
+            kd_loss = qry_loss + pos_loss + neg_loss
+            # loss = kd_loss +  task_loss
+            loss = kd_loss
                 
             # Backward pass and optimization
             scaler.scale(loss).backward()
+            torch.nn.utils.clip_grad_norm_(student_model.parameters(), 1)
             scaler.step(optimizer)
             scaler.update()
             scheduler.step()
-            torch.nn.utils.clip_grad_norm_(student_model.parameters(), 1)
             
             epoch_loss += loss.item()
             progress_bar.set_postfix({"Loss": loss.item()})
+            break
         
         # Evaluate on validation set
         student_model.eval()
-        psg_embs = encode_corpus(val_corpus, student_tokenizer, student_model, device, method="vbll")
+        psg_embs = encode_corpus(val_corpus, teacher_tokenizer, teacher_model, device, method="")
         index = FaissIndex.build(psg_embs)
         evaluator = Evaluator(
-            student_tokenizer,
-            student_model,
-            "vbll",
+            teacher_tokenizer,
+            teacher_model,
+            "",
             device,
             index=index,
             metrics={"ndcg", "recip_rank"},
