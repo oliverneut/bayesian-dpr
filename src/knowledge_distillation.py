@@ -168,12 +168,12 @@ def main(args):
         
         # Evaluate on validation set
         student_model.eval()
-        psg_embs, psg_ids = encode_corpus(val_corpus, teacher_tokenizer, teacher_model, device, method="")
+        psg_embs, psg_ids = encode_corpus(val_corpus, student_tokenizer, student_model, device, method="vbll")
         index = FaissIndex.build(psg_embs)
         evaluator = Evaluator(
-            teacher_tokenizer,
-            teacher_model,
-            "",
+            student_tokenizer,
+            student_model,
+            "vbll",
             device,
             index=index,
             metrics={"ndcg", "recip_rank"},
@@ -189,7 +189,7 @@ def main(args):
         # Save best model
         if ndcg > best_ndcg:
             best_ndcg = ndcg
-            model_path = os.path.join(args.output_dir, f"{args.model_name}_distilled.pt")
+            model_path = os.path.join(args.output_dir, f"{args.model_name}-distilled.pt")
             torch.save(student_model.state_dict(), model_path)
             logger.info(f"Model saved to {model_path}")
     
