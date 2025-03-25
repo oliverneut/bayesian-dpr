@@ -77,8 +77,8 @@ class Evaluator:
             ndcg_at_k.append(metrics["ndcg"])
             mrr_at_k.append(metrics["recip_rank"])
         results_agg = {
-            "nDCG@{}".format(k): float(np.mean(ndcg_at_k)),
-            "MRR@{}".format(k): float(np.mean(mrr_at_k)),
+            f"nDCG@{k}": float(np.mean(ndcg_at_k)),
+            f"MRR@{k}": float(np.mean(mrr_at_k)),
         }
         logger.info(results_agg)
         return results_agg

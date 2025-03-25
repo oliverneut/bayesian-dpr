@@ -151,10 +151,10 @@ def main(args):
             pos_loss = student_pos_emb.train_loss_fn(teacher_pos_emb)
             neg_loss = student_neg_emb.train_loss_fn(teacher_neg_emb)
 
-            # task_loss = task_loss_func(student_qry_emb.predictive.loc, student_pos_emb.predictive.loc, student_neg_emb.predictive.loc)
+            task_loss = task_loss_func(student_qry_emb.predictive.loc, student_pos_emb.predictive.loc, student_neg_emb.predictive.loc)
             kd_loss = qry_loss + pos_loss + neg_loss
-            # loss = kd_loss +  task_loss
-            loss = kd_loss
+            loss = kd_loss +  task_loss
+            # loss = kd_loss
                 
             # Backward pass and optimization
             scaler.scale(loss).backward()
@@ -164,7 +164,7 @@ def main(args):
             scheduler.step()
             
             epoch_loss += loss.item()
-            progress_bar.set_postfix({"Loss": loss.item()})
+            progress_bar.set_postfix({"Loss": loss.item(), "KD loss": kd_loss.item(), "Task loss": task_loss.item()})
         
         # Evaluate on validation set
         student_model.eval()
