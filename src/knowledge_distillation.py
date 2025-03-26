@@ -114,7 +114,7 @@ def main(args):
         epoch_loss = 0.0
 
         progress_bar = tqdm(train_dataloader, desc="Train loop")
-        
+        batch_idx = 0
         for qry, pos_psg, neg_psg in progress_bar:
             # Process query batch
             qry_enc = student_tokenizer(
@@ -155,6 +155,21 @@ def main(args):
             kd_loss = qry_loss + pos_loss + neg_loss
             loss = kd_loss +  task_loss
             # loss = kd_loss
+            
+            # Monitor embeddings during training - check if they're becoming very small or zeros
+            if batch_idx % 100 == 0:
+                # Log statistics for predictive.loc values to check distributions
+                qry_loc = student_qry_emb.predictive.loc.detach()
+                qry_stats = {
+                    "mean": qry_loc.mean().item(),
+                    "min": qry_loc.min().item(),
+                    "max": qry_loc.max().item(),
+                    "std": qry_loc.std().item(),
+                    "norm": qry_loc.norm().item(),
+                    "has_nan": torch.isnan(qry_loc).any().item(),
+                    "zeros_percent": (qry_loc.abs() < 1e-6).float().mean().item() * 100
+                }
+                logger.info(f"Epoch {epoch}, Batch {batch_idx} - Student embedding stats: {qry_stats}")
                 
             # Backward pass and optimization
             scaler.scale(loss).backward()
@@ -165,6 +180,7 @@ def main(args):
             
             epoch_loss += loss.item()
             progress_bar.set_postfix({"Loss": loss.item(), "KD loss": kd_loss.item(), "Task loss": task_loss.item()})
+            batch_idx += 1
         
         # Evaluate on validation set
         student_model.eval()
