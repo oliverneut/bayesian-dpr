@@ -18,22 +18,6 @@ from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
-class DistillationLoss(nn.Module):
-    def __init__(self, temperature=2.0):
-        super().__init__()
-        self.temperature = temperature
-        
-    def forward(self, student_embeddings, teacher_embeddings):
-        """
-        Compute MSE loss between normalized embeddings
-        """
-        # Normalize embeddings
-        student_embeddings = F.normalize(student_embeddings, p=2, dim=1)
-        teacher_embeddings = F.normalize(teacher_embeddings, p=2, dim=1)
-        
-        # Compute MSE loss between embeddings
-        return F.mse_loss(student_embeddings, teacher_embeddings)
-
 def make_lr_scheduler_with_warmup(model, training_data, lr, min_lr, num_epochs, warmup_rate):
     optimizer = Adam(model.parameters(), lr=lr)
     num_training_steps = len(training_data) * num_epochs
@@ -66,8 +50,8 @@ def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
-    k = args.num_samples
-    task_loss_func = BinaryPassageRetrievalLoss()
+    k = args.num_samples # ndcg@k and mrr@k
+    a = args.a # weight of KD-loss
         
     # Load data
     logger.info("Loading data...")
@@ -83,7 +67,7 @@ def main(args):
     
     # Load student model
     logger.info(f"Loading student model: {args.model_name}")
-    reg_weight = 1.0/ len(train_dataloader)
+    reg_weight = 1.0 / len(train_dataloader)
     prior_scale = 1.0
     wishart_scale = 0.1
     paremeterization = 'diagonal'
@@ -97,7 +81,7 @@ def main(args):
     logger.info(f"Compression ratio: {student_params/teacher_params:.2f}")
     
     # Set up loss function
-    # distillation_loss = DistillationLoss(temperature=args.temperature)
+    task_loss_func = BinaryPassageRetrievalLoss()
     
     # Set up optimizer and scheduler
     optimizer, scheduler = make_lr_scheduler_with_warmup(
@@ -107,14 +91,12 @@ def main(args):
     # Training loop
     logger.info("Starting training...")
     best_ndcg = 0.0
-    scaler = torch.amp.GradScaler(enabled=True)
     
     for epoch in range(1, args.num_epochs + 1):
         student_model.train()
         epoch_loss = 0.0
 
         progress_bar = tqdm(train_dataloader, desc="Train loop")
-        batch_idx = 0
         for qry, pos_psg, neg_psg in progress_bar:
             # Process query batch
             qry_enc = student_tokenizer(
@@ -151,36 +133,19 @@ def main(args):
             pos_loss = student_pos_emb.train_loss_fn(teacher_pos_emb)
             neg_loss = student_neg_emb.train_loss_fn(teacher_neg_emb)
 
-            task_loss = task_loss_func(student_qry_emb.predictive.loc, student_pos_emb.predictive.loc, student_neg_emb.predictive.loc)
+            # task_loss = task_loss_func(student_qry_emb.predictive.loc, student_pos_emb.predictive.loc, student_neg_emb.predictive.loc)
+            task_loss = 0
             kd_loss = qry_loss + pos_loss + neg_loss
-            loss = kd_loss +  task_loss
-            # loss = kd_loss
-            
-            # Monitor embeddings during training - check if they're becoming very small or zeros
-            if batch_idx % 100 == 0:
-                # Log statistics for predictive.loc values to check distributions
-                qry_loc = student_qry_emb.predictive.loc.detach()
-                qry_stats = {
-                    "mean": qry_loc.mean().item(),
-                    "min": qry_loc.min().item(),
-                    "max": qry_loc.max().item(),
-                    "std": qry_loc.std().item(),
-                    "norm": qry_loc.norm().item(),
-                    "has_nan": torch.isnan(qry_loc).any().item(),
-                    "zeros_percent": (qry_loc.abs() < 1e-6).float().mean().item() * 100
-                }
-                logger.info(f"Epoch {epoch}, Batch {batch_idx} - Student embedding stats: {qry_stats}")
-                
-            # Backward pass and optimization
-            scaler.scale(loss).backward()
-            torch.nn.utils.clip_grad_norm_(student_model.parameters(), 1)
-            scaler.step(optimizer)
-            scaler.update()
+            # loss = a * kd_loss +  task_loss
+            loss = a * kd_loss
+                        
+            loss.backward()
+            optimizer.step()
+            # torch.nn.utils.clip_grad_norm_(student_model.parameters(), 1)
             scheduler.step()
             
             epoch_loss += loss.item()
             progress_bar.set_postfix({"Loss": loss.item(), "KD loss": kd_loss.item(), "Task loss": task_loss.item()})
-            batch_idx += 1
         
         # Evaluate on validation set
         student_model.eval()
