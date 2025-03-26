@@ -96,6 +96,7 @@ def main(args):
         student_model.train()
         epoch_loss = 0.0
 
+        batch_idx = 0
         progress_bar = tqdm(train_dataloader, desc="Train loop")
         for qry, pos_psg, neg_psg in progress_bar:
             # Process query batch
@@ -122,7 +123,6 @@ def main(args):
                 teacher_neg_emb = teacher_model(neg_enc)
             
             # Forward pass with student model
-            # with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=True):
             optimizer.zero_grad()
             student_qry_emb = student_model(qry_enc)
             student_pos_emb = student_model(pos_enc)
@@ -145,7 +145,12 @@ def main(args):
             scheduler.step()
             
             epoch_loss += loss.item()
-            progress_bar.set_postfix({"Loss": loss.item(), "KD loss": kd_loss.item(), "Task loss": task_loss.item()})
+            # progress_bar.set_postfix({"Loss": loss.item(), "KD loss": kd_loss.item(), "Task loss": task_loss.item()})
+            progress_bar.set_postfix({"Loss": loss.item()})
+
+            batch_idx += 1
+            if batch_idx / len(train_dataloader) >= 0.1:
+                break
         
         # Evaluate on validation set
         student_model.eval()
