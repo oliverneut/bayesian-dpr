@@ -65,28 +65,35 @@ class KnowledgeDistillationTrainer:
                 pos_enc = self.tokenize_passage(pos_psg).to(self.device)
                 neg_enc = self.tokenize_passage(neg_psg).to(self.device)
 
-                with torch.no_grad():
-                    teacher_qry_emb = self.teacher_model(qry_enc)
-                    teacher_pos_emb = self.teacher_model(pos_enc)
-                    teacher_neg_emb = self.teacher_model(neg_enc)
+                # with torch.no_grad():
+                #     teacher_qry_emb = self.teacher_model(qry_enc)
+                #     teacher_pos_emb = self.teacher_model(pos_enc)
+                #     teacher_neg_emb = self.teacher_model(neg_enc)
                 
                 optimizer.zero_grad()
                 student_qry_emb = self.student_model(qry_enc)
                 student_pos_emb = self.student_model(pos_enc)
                 student_neg_emb = self.student_model(neg_enc)
 
-                qry_loss = student_qry_emb.train_loss_fn(teacher_qry_emb)
-                pos_loss = student_pos_emb.train_loss_fn(teacher_pos_emb)
-                neg_loss = student_neg_emb.train_loss_fn(teacher_neg_emb)
-
-                kd_loss = qry_loss + pos_loss + neg_loss
-                loss = alpha * kd_loss
-                
+                loss = self.loss_func(student_qry_emb.predictive.loc, student_pos_emb.predictive.loc, student_neg_emb.predictive.loc)
                 loss.backward()
                 optimizer.step()
                 # torch.nn.utils.clip_grad_norm_(student_model.parameters(), 1)
                 scheduler.step()
                 progress_bar.set_postfix({"Loss": loss.item()})
+
+                # qry_loss = student_qry_emb.train_loss_fn(teacher_qry_emb)
+                # pos_loss = student_pos_emb.train_loss_fn(teacher_pos_emb)
+                # neg_loss = student_neg_emb.train_loss_fn(teacher_neg_emb)
+
+                # kd_loss = qry_loss + pos_loss + neg_loss
+                # loss = alpha * kd_loss
+                
+                # loss.backward()
+                # optimizer.step()
+                # # torch.nn.utils.clip_grad_norm_(student_model.parameters(), 1)
+                # scheduler.step()
+                # progress_bar.set_postfix({"Loss": loss.item()})
 
             ndcg, mrr = self.compute_validation_metrics(k)
             logger.info(f"Epoch {epoch}/{args.num_epochs} ")
