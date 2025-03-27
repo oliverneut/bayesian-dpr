@@ -36,150 +36,130 @@ def make_lr_scheduler_with_warmup(model, training_data, lr, min_lr, num_epochs, 
     )
     return optimizer, scheduler
 
+class KnowledgeDistillationTrainer:
+    def __init__(self, train_dl, val_queries, val_corpus, qrels, device, args):
+        self.tokenizer = None
+        self.student_model = None
+        self.teacher_model = None
+        self.train_dl = train_dl
+        self.val_queries = val_queries
+        self.val_corpus = val_corpus
+        self.qrels = qrels
+        self.device = device
+        self.loss_func = BinaryPassageRetrievalLoss()
+        self.args = args
+    
+    def train(self, num_epochs, lr, min_lr, warmup_rate, k=20, alpha=1.0):
+        optimizer, scheduler = make_lr_scheduler_with_warmup(
+            self.student_model, self.train_dl, lr, min_lr, num_epochs, warmup_rate
+        )
+
+        for epoch in range(1, num_epochs + 1):
+            self.student_model.train()
+            progress_bar = tqdm(self.train_dl, desc="Train loop")
+
+            for qry, pos_psg, neg_psg in progress_bar:
+                qry_enc = self.tokenize_query(qry).to(self.device)
+                pos_enc = self.tokenize_passage(pos_psg).to(self.device)
+                neg_enc = self.tokenize_passage(neg_psg).to(self.device)
+
+                with torch.no_grad():
+                    teacher_qry_emb = self.teacher_model(qry_enc)
+                    teacher_pos_emb = self.teacher_model(pos_enc)
+                    teacher_neg_emb = self.teacher_model(neg_enc)
+                
+                optimizer.zero_grad()
+                student_qry_emb = self.student_model(qry_enc)
+                student_pos_emb = self.student_model(pos_enc)
+                student_neg_emb = self.student_model(neg_enc)
+
+                qry_loss = student_qry_emb.train_loss_fn(teacher_qry_emb)
+                pos_loss = student_pos_emb.train_loss_fn(teacher_pos_emb)
+                neg_loss = student_neg_emb.train_loss_fn(teacher_neg_emb)
+
+                kd_loss = qry_loss + pos_loss + neg_loss
+                loss = alpha * kd_loss
+                
+                loss.backward()
+                optimizer.step()
+                # torch.nn.utils.clip_grad_norm_(student_model.parameters(), 1)
+                scheduler.step()
+                epoch_loss += loss.item()
+                progress_bar.set_postfix({"Loss": loss.item()})
+
+            ndcg, mrr = self.compute_validation_metrics(self, k)
+            logger.info(f"Epoch {epoch}/{args.num_epochs} ")
+            logger.info(f"Validation metrics: nDCG@{k}={ndcg:.2f} | MRR@{k}={mrr}")
+
+            if ndcg > max_ndcg:
+                model_path = os.path.join(args.output_dir, f"{args.ckpt_filename}.pt")
+                torch.save(self.model.state_dict(), model_path)
+                logger.info(f"Model saved to {model_path}")
+                max_ndcg = ndcg
+
+    def tokenize_query(self, text):
+        return self.tokenizer(text, padding="max_length", truncation=True, max_length=args.max_qry_len, return_tensors="pt")
+    
+    def tokenize_passage(self, text):
+        return self.tokenizer(text, padding="max_length", truncation=True, max_length=args.max_psg_len, return_tensors="pt")
+
+    def set_student_model(self, args):
+        model_name = args.student_model_name
+        reg_weight = 1.0 / len(self.train_dl)
+        prior_scale = args.prior_scale
+        wishart_scale = args.wishart_scale
+        paremeterization = args.paremeterization
+        self.tokenizer, self.student_model = vbll_model_factory(model_name, reg_weight, paremeterization, prior_scale, wishart_scale, self.device)
+
+    def set_teacher_model(self, args):
+        model_name = args.teacher_model_name
+        _, self.teacher_model = model_factory(model_name, self.device)
+        self.teacher_model.eval()
+
+    def compute_validation_metrics(self, k=20):
+        self.student_model.eval()
+        psg_embs, psg_ids = encode_corpus(self.val_corpus, self.tokenizer, self.student_model, self.device, method="vbll")
+        index = FaissIndex.build(psg_embs)
+        evaluator = Evaluator(
+            self.tokenizer,
+            self.student_model,
+            "vbll",
+            self.device,
+            index=index,
+            metrics={"ndcg", "recip_rank"},
+            psg_ids=psg_ids
+        )
+        
+        metrics = evaluator.evaluate_retriever(self.val_queries, self.qrels, k=k)
+        ndcg = metrics[f"nDCG@{k}"]
+        mrr = metrics[f"MRR@{k}"]
+        
+        return ndcg, mrr
+
 def main(args):
     # Set up logging
-    logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-        datefmt="%m/%d/%Y %H:%M:%S",
-        level=logging.INFO,
-    )
+    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
     
     # Create output directory
     os.makedirs(args.output_dir, exist_ok=True)
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
-
-    k = args.num_samples # ndcg@k and mrr@k
-    a = args.a # weight of KD-loss
         
     # Load data
     logger.info("Loading data...")
     train_dataloader = get_dataloader(get_query_file(split="train"), batch_size=args.batch_size, shuffle=True)
-    val_queries = get_query_dataloader(get_query_file(split="val"),  batch_size=1, shuffle=False)
+    val_queries = get_query_dataloader(get_query_file(split="val"),  batch_size=16, shuffle=False)
     val_corpus = get_corpus_dataloader("data/prepared/corpus-val.jsonl",  batch_size=args.batch_size, shuffle=False)
     qrels = get_qrels()
 
-    # Load teacher model
-    logger.info(f"Loading teacher model: sentence-transformers/msmarco-bert-base-dot-v5")
-    teacher_tokenizer, teacher_model = model_factory("bert-base-msmarco", device)
-    teacher_model.eval()  # Set teacher to evaluation mode
-    
-    # Load student model
-    logger.info(f"Loading student model: {args.model_name}")
-    reg_weight = 1.0 / len(train_dataloader)
-    prior_scale = 1.0
-    wishart_scale = 0.1
-    paremeterization = 'diagonal'
-    student_tokenizer, student_model = vbll_model_factory(args.model_name, reg_weight, paremeterization, prior_scale, wishart_scale, device)
-    
-    # Print model sizes
-    teacher_params = sum(p.numel() for p in teacher_model.parameters())
-    student_params = sum(p.numel() for p in student_model.parameters())
-    logger.info(f"Teacher model parameters: {teacher_params:,}")
-    logger.info(f"Student model parameters: {student_params:,}")
-    logger.info(f"Compression ratio: {student_params/teacher_params:.2f}")
-    
-    # Set up loss function
-    task_loss_func = BinaryPassageRetrievalLoss()
-    
-    # Set up optimizer and scheduler
-    optimizer, scheduler = make_lr_scheduler_with_warmup(
-        student_model, train_dataloader, args.lr, args.min_lr, args.num_epochs, args.warmup_rate
-    )
-    
-    # Training loop
-    logger.info("Starting training...")
-    best_ndcg = 0.0
-    
-    for epoch in range(1, args.num_epochs + 1):
-        student_model.train()
-        epoch_loss = 0.0
+    kd_trainer = KnowledgeDistillationTrainer(train_dataloader, val_queries, val_corpus, qrels, device, args)
+    kd_trainer.set_teacher_model(args)
+    kd_trainer.set_student_model(args)
 
-        batch_idx = 0
-        progress_bar = tqdm(train_dataloader, desc="Train loop")
-        for qry, pos_psg, neg_psg in progress_bar:
-            # Process query batch
-            qry_enc = student_tokenizer(
-                qry, padding="max_length", truncation=True, 
-                max_length=args.max_qry_len, return_tensors="pt"
-            ).to(device)
-            
-            # Process passage batches
-            pos_enc = student_tokenizer(
-                pos_psg, padding="max_length", truncation=True,
-                max_length=args.max_psg_len, return_tensors="pt"
-            ).to(device)
+    kd_trainer.train(args.num_epochs, args.lr, args.min_lr, args.warmup_rate, k=args.k, alpha=args.alpha)
 
-            neg_enc = student_tokenizer(
-                neg_psg, padding="max_length", truncation=True,
-                max_length=args.max_psg_len, return_tensors="pt"
-            ).to(device)
-            
-            # Forward pass with teacher model (no gradient)
-            with torch.no_grad():
-                teacher_qry_emb = teacher_model(qry_enc)
-                teacher_pos_emb = teacher_model(pos_enc)
-                teacher_neg_emb = teacher_model(neg_enc)
-            
-            # Forward pass with student model
-            optimizer.zero_grad()
-            student_qry_emb = student_model(qry_enc)
-            student_pos_emb = student_model(pos_enc)
-            student_neg_emb = student_model(neg_enc)
-            
-            # Compute loss
-            qry_loss = student_qry_emb.train_loss_fn(teacher_qry_emb)
-            pos_loss = student_pos_emb.train_loss_fn(teacher_pos_emb)
-            neg_loss = student_neg_emb.train_loss_fn(teacher_neg_emb)
-
-            # task_loss = task_loss_func(student_qry_emb.predictive.loc, student_pos_emb.predictive.loc, student_neg_emb.predictive.loc)
-            task_loss = 0
-            kd_loss = qry_loss + pos_loss + neg_loss
-            # loss = a * kd_loss +  task_loss
-            loss = a * kd_loss
-                        
-            loss.backward()
-            optimizer.step()
-            # torch.nn.utils.clip_grad_norm_(student_model.parameters(), 1)
-            scheduler.step()
-            
-            epoch_loss += loss.item()
-            # progress_bar.set_postfix({"Loss": loss.item(), "KD loss": kd_loss.item(), "Task loss": task_loss.item()})
-            progress_bar.set_postfix({"Loss": loss.item()})
-
-            batch_idx += 1
-            if batch_idx / len(train_dataloader) >= 0.1:
-                break
-        
-        # Evaluate on validation set
-        student_model.eval()
-        psg_embs, psg_ids = encode_corpus(val_corpus, student_tokenizer, student_model, device, method="vbll")
-        index = FaissIndex.build(psg_embs)
-        evaluator = Evaluator(
-            student_tokenizer,
-            student_model,
-            "vbll",
-            device,
-            index=index,
-            metrics={"ndcg", "recip_rank"},
-            psg_ids=psg_ids
-        )
-        
-        metrics = evaluator.evaluate_retriever(val_queries, qrels, k=k)
-        ndcg = metrics[f"nDCG@{k}"]
-        mrr = metrics[f"MRR@{k}"]
-        
-        logger.info(f"Epoch {epoch}/{args.num_epochs} - Loss: {epoch_loss/len(train_dataloader):.4f} - nDCG@{k}: {ndcg:.4f} - MRR@{k}: {mrr:.4f}")
-        
-        # Save best model
-        if ndcg > best_ndcg:
-            best_ndcg = ndcg
-            model_path = os.path.join(args.output_dir, f"{args.model_name}-distilled.pt")
-            torch.save(student_model.state_dict(), model_path)
-            logger.info(f"Model saved to {model_path}")
-    
-    logger.info("Training completed!")
+    logger.info(f"Training completed after {args.num_epochs} epochs!")
 
 if __name__ == '__main__':
     args = OmegaConf.load('src/utils/config.yml').knowledge_distillation

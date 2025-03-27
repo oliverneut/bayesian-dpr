@@ -1,16 +1,21 @@
 knowledge_distillation:
   dataset_id: msmarco
-  model_name: bert-base
-  num_samples: 10
+  student_model_name: bert-base
+  teacher_model_name: bert-base-msmarco
+  max_qry_len: 32
+  max_psg_len: 256
+  output_dir: output/distilled_models
+  ckpt_filename: vbll-kd
+  alpha: 1
+  k: 20
+  prior_scale: 1.0
+  wishart_scale: 0.1
+  paremeterization: diagonal
   batch_size: 16
   num_epochs: 4
   lr: 5.0e-6 # 5.0e-6
   min_lr: 5.0e-8 # 5.0e-8
   warmup_rate: 0.1
-  max_qry_len: 32
-  max_psg_len: 256
-  output_dir: output/distilled_models
-  a: 1
 
 prepare_data:
   num_samples: 502939

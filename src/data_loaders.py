@@ -55,10 +55,8 @@ class DPRDataset(Dataset):
         return self._num_samples
 
     def __getitem__(self, i):
-        pos_psg = self.data[i]["pos"]
-        neg_psg = self.data[i]["neg"]
-        pos_psg_id = random.randint(0, len(pos_psg) - 1)
-        neg_psg_id = random.randint(0, len(neg_psg) - 1)
+        pos_psg_id = random.choice(self.data[i]["pos"])
+        neg_psg_id = random.choice(self.data[i]["neg"])
         return (
             self.data[i]["query"],
             self.corpus[str(pos_psg_id)],
