@@ -84,10 +84,9 @@ class KnowledgeDistillationTrainer:
                 optimizer.step()
                 # torch.nn.utils.clip_grad_norm_(student_model.parameters(), 1)
                 scheduler.step()
-                epoch_loss += loss.item()
                 progress_bar.set_postfix({"Loss": loss.item()})
 
-            ndcg, mrr = self.compute_validation_metrics(self, k)
+            ndcg, mrr = self.compute_validation_metrics(k)
             logger.info(f"Epoch {epoch}/{args.num_epochs} ")
             logger.info(f"Validation metrics: nDCG@{k}={ndcg:.2f} | MRR@{k}={mrr}")
 
