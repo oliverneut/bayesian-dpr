@@ -54,6 +54,8 @@ class KnowledgeDistillationTrainer:
             self.student_model, self.train_dl, lr, min_lr, num_epochs, warmup_rate
         )
 
+        max_ndcg = 0.0
+
         for epoch in range(1, num_epochs + 1):
             self.student_model.train()
             progress_bar = tqdm(self.train_dl, desc="Train loop")
@@ -85,6 +87,8 @@ class KnowledgeDistillationTrainer:
                 # torch.nn.utils.clip_grad_norm_(student_model.parameters(), 1)
                 scheduler.step()
                 progress_bar.set_postfix({"Loss": loss.item()})
+
+                break
 
             ndcg, mrr = self.compute_validation_metrics(k)
             logger.info(f"Epoch {epoch}/{args.num_epochs} ")
@@ -148,7 +152,7 @@ def main(args):
     # Load data
     logger.info("Loading data...")
     train_dataloader = get_dataloader(get_query_file(split="train"), batch_size=args.batch_size, shuffle=True)
-    val_queries = get_query_dataloader(get_query_file(split="val"),  batch_size=16, shuffle=False)
+    val_queries = get_query_dataloader(get_query_file(split="val"),  batch_size=1, shuffle=False)
     val_corpus = get_corpus_dataloader("data/prepared/corpus-val.jsonl",  batch_size=args.batch_size, shuffle=False)
     qrels = get_qrels()
 
