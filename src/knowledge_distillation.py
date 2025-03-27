@@ -88,15 +88,13 @@ class KnowledgeDistillationTrainer:
                 scheduler.step()
                 progress_bar.set_postfix({"Loss": loss.item()})
 
-                break
-
             ndcg, mrr = self.compute_validation_metrics(k)
             logger.info(f"Epoch {epoch}/{args.num_epochs} ")
-            logger.info(f"Validation metrics: nDCG@{k}={ndcg:.2f} | MRR@{k}={mrr}")
+            logger.info(f"Validation metrics: nDCG@{k}={ndcg:.4f} | MRR@{k}={mrr:.4f}")
 
             if ndcg > max_ndcg:
                 model_path = os.path.join(args.output_dir, f"{args.ckpt_filename}.pt")
-                torch.save(self.model.state_dict(), model_path)
+                torch.save(self.student_model.state_dict(), model_path)
                 logger.info(f"Model saved to {model_path}")
                 max_ndcg = ndcg
 
