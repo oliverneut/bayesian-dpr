@@ -13,8 +13,8 @@ knowledge_distillation:
   paremeterization: diagonal
   batch_size: 16
   num_epochs: 4
-  lr: 5.0e-6 # 5.0e-6
-  min_lr: 5.0e-8 # 5.0e-8
+  lr: 5.0e-4 # 5.0e-6
+  min_lr: 5.0e-6 # 5.0e-8
   warmup_rate: 0.1
 
 prepare_data:
