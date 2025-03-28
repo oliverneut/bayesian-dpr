@@ -76,7 +76,8 @@ class KnowledgeDistillationTrainer:
                 student_pos_emb = self.student_model(pos_enc)
                 student_neg_emb = self.student_model(neg_enc)
 
-                loss = self.loss_func(student_qry_emb.predictive.loc, student_pos_emb.predictive.loc, student_neg_emb.predictive.loc)
+                # loss = self.loss_func(student_qry_emb.predictive.loc, student_pos_emb.predictive.loc, student_neg_emb.predictive.loc)
+                loss = self.loss_func(student_qry_emb, student_pos_emb, student_neg_emb)
                 loss.backward()
                 optimizer.step()
                 # torch.nn.utils.clip_grad_norm_(student_model.parameters(), 1)
@@ -123,7 +124,8 @@ class KnowledgeDistillationTrainer:
         prior_scale = args.prior_scale
         wishart_scale = args.wishart_scale
         paremeterization = args.paremeterization
-        self.tokenizer, self.student_model = vbll_model_factory(model_name, reg_weight, paremeterization, prior_scale, wishart_scale, self.device)
+        # self.tokenizer, self.student_model = vbll_model_factory(model_name, reg_weight, paremeterization, prior_scale, wishart_scale, self.device)
+        self.tokenizer, self.student_model = model_factory(model_name, self.device)
 
     def set_teacher_model(self, args):
         model_name = args.teacher_model_name
@@ -132,12 +134,12 @@ class KnowledgeDistillationTrainer:
 
     def compute_validation_metrics(self, k=20):
         self.student_model.eval()
-        psg_embs, psg_ids = encode_corpus(self.val_corpus, self.tokenizer, self.student_model, self.device, method="vbll")
+        psg_embs, psg_ids = encode_corpus(self.val_corpus, self.tokenizer, self.student_model, self.device, method="")
         index = FaissIndex.build(psg_embs)
         evaluator = Evaluator(
             self.tokenizer,
             self.student_model,
-            "vbll",
+            "",
             self.device,
             index=index,
             metrics={"ndcg", "recip_rank"},
