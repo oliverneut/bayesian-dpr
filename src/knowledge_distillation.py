@@ -54,12 +54,13 @@ class KnowledgeDistillationTrainer:
             self.student_model, self.train_dl, lr, min_lr, num_epochs, warmup_rate
         )
 
-        max_ndcg = 0.0
+        max_ndcg = -1.0
 
         for epoch in range(1, num_epochs + 1):
             self.student_model.train()
             progress_bar = tqdm(self.train_dl, desc="Train loop")
 
+            batch_idx = 0
             for qry, pos_psg, neg_psg in progress_bar:
                 qry_enc = self.tokenize_query(qry).to(self.device)
                 pos_enc = self.tokenize_passage(pos_psg).to(self.device)
@@ -81,6 +82,11 @@ class KnowledgeDistillationTrainer:
                 # torch.nn.utils.clip_grad_norm_(student_model.parameters(), 1)
                 scheduler.step()
                 progress_bar.set_postfix({"Loss": loss.item()})
+
+                if batch_idx / len(self.train_dl) > 0.1:
+                    break
+
+                batch_idx += 1
 
                 # qry_loss = student_qry_emb.train_loss_fn(teacher_qry_emb)
                 # pos_loss = student_pos_emb.train_loss_fn(teacher_pos_emb)
