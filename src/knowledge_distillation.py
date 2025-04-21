@@ -60,7 +60,6 @@ class KnowledgeDistillationTrainer:
             self.student_model.train()
             progress_bar = tqdm(self.train_dl, desc="Train loop")
 
-            batch_idx = 0
             for qry, pos_psg, neg_psg in progress_bar:
                 qry_enc = self.tokenize_query(qry).to(self.device)
                 pos_enc = self.tokenize_passage(pos_psg).to(self.device)
@@ -76,18 +75,13 @@ class KnowledgeDistillationTrainer:
                 student_pos_emb = self.student_model(pos_enc)
                 student_neg_emb = self.student_model(neg_enc)
 
-                # loss = self.loss_func(student_qry_emb.predictive.loc, student_pos_emb.predictive.loc, student_neg_emb.predictive.loc)
-                loss = self.loss_func(student_qry_emb, student_pos_emb, student_neg_emb)
+                loss = self.loss_func(student_qry_emb.predictive.loc, student_pos_emb.predictive.loc, student_neg_emb.predictive.loc)
+                # loss = self.loss_func(student_qry_emb, student_pos_emb, student_neg_emb)
                 loss.backward()
                 optimizer.step()
                 # torch.nn.utils.clip_grad_norm_(student_model.parameters(), 1)
                 scheduler.step()
                 progress_bar.set_postfix({"Loss": loss.item()})
-
-                if batch_idx / len(self.train_dl) > 0.1:
-                    break
-
-                batch_idx += 1
 
                 # qry_loss = student_qry_emb.train_loss_fn(teacher_qry_emb)
                 # pos_loss = student_pos_emb.train_loss_fn(teacher_pos_emb)
@@ -124,8 +118,8 @@ class KnowledgeDistillationTrainer:
         prior_scale = args.prior_scale
         wishart_scale = args.wishart_scale
         paremeterization = args.paremeterization
-        # self.tokenizer, self.student_model = vbll_model_factory(model_name, reg_weight, paremeterization, prior_scale, wishart_scale, self.device)
-        self.tokenizer, self.student_model = model_factory(model_name, self.device)
+        self.tokenizer, self.student_model = vbll_model_factory(model_name, reg_weight, paremeterization, prior_scale, wishart_scale, self.device)
+        # self.tokenizer, self.student_model = model_factory(model_name, self.device)
 
     def set_teacher_model(self, args):
         model_name = args.teacher_model_name
