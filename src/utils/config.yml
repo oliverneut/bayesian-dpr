@@ -6,7 +6,7 @@ knowledge_distillation:
   max_psg_len: 256
   output_dir: output/distilled_models
   ckpt_filename: vbll-kd
-  alpha: 1
+  alpha: 0.1
   k: 20
   prior_scale: 1.0
   wishart_scale: 0.1
