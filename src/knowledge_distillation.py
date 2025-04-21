@@ -128,12 +128,12 @@ class KnowledgeDistillationTrainer:
 
     def compute_validation_metrics(self, k=20):
         self.student_model.eval()
-        psg_embs, psg_ids = encode_corpus(self.val_corpus, self.tokenizer, self.student_model, self.device, method="")
+        psg_embs, psg_ids = encode_corpus(self.val_corpus, self.tokenizer, self.student_model, self.device, method="vbll")
         index = FaissIndex.build(psg_embs)
         evaluator = Evaluator(
             self.tokenizer,
             self.student_model,
-            "",
+            "vbll",
             self.device,
             index=index,
             metrics={"ndcg", "recip_rank"},
