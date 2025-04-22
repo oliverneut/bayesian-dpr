@@ -5,8 +5,8 @@ knowledge_distillation:
   max_qry_len: 32
   max_psg_len: 256
   output_dir: output/distilled_models
-  ckpt_filename: vbll-kd
-  alpha: 0.1
+  ckpt_filename: vbll-kd-0.001
+  alpha: 0.001
   k: 20
   prior_scale: 1.0
   wishart_scale: 0.1
@@ -24,5 +24,5 @@ prepare_data:
 eval_retriever:
   output_dir: output/evaluations
   ckpt_filename: vbll-kd
-  batch_size: 16
+  batch_size: 32
   k: 20
