@@ -16,4 +16,4 @@ source activate bret
 
 cd $HOME/bayesian-dpr
 
-python src/evaluate_retriever.py
+python src/eval_retriever.py

@@ -11,6 +11,7 @@ def encode_passage_mean(psg_emb):
 def encode_corpus(corpus, tokenizer, encoder, device, method, num_samples=None, max_psg_len=256):
     psg_embs = []
     psg_ids = []
+    idx = 0
     with torch.no_grad():
         for psg_id, psg in tqdm(corpus, desc="Encoding corpus"):
             psg_enc = tokenizer(
@@ -25,5 +26,9 @@ def encode_corpus(corpus, tokenizer, encoder, device, method, num_samples=None, 
                 psg_emb = encoder(psg_enc)
             psg_embs.append(psg_emb.detach().cpu())
             psg_ids += list(psg_id)
+
+            if idx > 1000:
+                break
+            idx += 1
         psg_embs = torch.cat(psg_embs, dim=0)
     return psg_embs, psg_ids

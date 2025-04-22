@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --partition=gpu
+#SBATCH --partition=gpu_h100
 #SBATCH --gpus=1
 #SBATCH --job-name=PrepareData
 #SBATCH --ntasks=1

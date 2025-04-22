@@ -44,8 +44,8 @@ class Evaluator:
         return results
 
     def _generate_run(self, qry_data_loader, k=20, num_samples=None, max_qry_len=32):
-        if qry_data_loader.batch_size != 1:
-            raise ValueError("To generate a run, load the queries with a batch size of 1.")
+        # if qry_data_loader.batch_size != 1:
+        #     raise ValueError("To generate a run, load the queries with a batch size of 1.")
         run = {}
         with torch.no_grad():
             for qry_id, qry in qry_data_loader:
