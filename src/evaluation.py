@@ -7,6 +7,7 @@ import numpy as np
 import torch
 from pytrec_eval import RelevanceEvaluator
 from encoding import encode_query_mean
+from tqdm import tqdm
 
 
 logger = logging.getLogger(__name__)
@@ -44,28 +45,33 @@ class Evaluator:
         return results
 
     def _generate_run(self, qry_data_loader, k=20, num_samples=None, max_qry_len=32):
-        # if qry_data_loader.batch_size != 1:
-        #     raise ValueError("To generate a run, load the queries with a batch size of 1.")
+        """Generate run file for evaluation."""
         run = {}
         with torch.no_grad():
-            for qry_id, qry in qry_data_loader:
+            for qry_ids, queries in tqdm(qry_data_loader, desc="Generating run"):
                 qry_enc = self.tokenizer(
-                    qry, padding="max_length", truncation=True, max_length=max_qry_len, return_tensors="pt"
+                    queries, padding="max_length", truncation=True, max_length=max_qry_len, return_tensors="pt"
                 ).to(self.device)
+                
                 if self.method == "bret":
                     qry_emb = self.model(qry_enc, num_samples=num_samples)
                     qry_emb = encode_query_mean(qry_emb)
-                if self.method == "vbll":
+                elif self.method == "vbll":
                     qry_emb = self.model(qry_enc).predictive.loc
                 else:
                     qry_emb = self.model(qry_enc)
-                scores, indices = self.index.search(qry_emb, k)
-                psg_indices = [self.psg_ids[idx] for idx in indices[0]]
                 
-                qid = str(qry_id.item())
-                run[qid] = {}
-                for score, psg_id in zip(scores[0], psg_indices):
-                    run[qid][psg_id] = float(score)
+                scores, indices = self.index.search(qry_emb, k)
+                
+                # Convert batch of indices to passage IDs
+                batch_psg_indices = [[self.psg_ids[idx] for idx in batch_indices] for batch_indices in indices]
+                
+                # Process each query in the batch
+                for qry_id, query_scores, query_indices in zip(qry_ids, scores, batch_psg_indices):
+                    run[qry_id] = {}
+                    for score, psg_id in zip(query_scores, query_indices):
+                        run[qry_id][psg_id] = float(score)
+                        
         return run
 
     def _calculate_metrics(self, run, qrels, k=20):
