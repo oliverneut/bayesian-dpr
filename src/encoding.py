@@ -1,4 +1,5 @@
 import torch
+from tqdm import tqdm
 
 def encode_query_mean(qry_emb):
     return qry_emb.mean(dim=0)
@@ -11,7 +12,7 @@ def encode_corpus(corpus, tokenizer, encoder, device, method, num_samples=None, 
     psg_embs = []
     psg_ids = []
     with torch.no_grad():
-        for psg_id, psg in corpus:
+        for psg_id, psg in tqdm(corpus, desc="Encoding corpus"):
             psg_enc = tokenizer(
                 psg, padding="max_length", truncation=True, max_length=max_psg_len, return_tensors="pt"
             ).to(device)

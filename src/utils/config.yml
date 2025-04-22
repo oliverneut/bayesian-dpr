@@ -20,3 +20,9 @@ knowledge_distillation:
 prepare_data:
   num_samples: 502939
   val_size: 100
+
+eval_retriever:
+  output_dir: output/evaluations
+  ckpt_filename: vbll-kd
+  batch_size: 16
+  k: 20

@@ -4,86 +4,155 @@ import json
 import os
 from tqdm import tqdm
 import random
-from typing import Dict
-from pathlib import PosixPath
+from typing import Dict, Set, Tuple, Optional
+from pathlib import Path
+from dataclasses import dataclass
 from utils.config import (
     TOTAL_DOCUMENTS,
     CE_SCORE_MARGIN,
     HARD_NEGATIVES,
     PREPARED_DIR
 )
+from data_loaders import get_queries, get_corpus, get_qrels
 
-random.seed(42)
+@dataclass
+class QueryData:
+    qid: int
+    query: str
+    pos_pids: list
+    neg_pids: list
 
-from data_loaders import get_queries, get_corpus
-
-def save_queries(data: Dict, data_dir: PosixPath, split: str):
-    with open(f'{data_dir}/queries-{split}.jsonl', 'wt', encoding='utf8') as f_out:
-        for k, v in tqdm(data.items(), total=len(data.keys())):
-            json.dump({"qid": k, "query": v["query"], "pos": v["pos"], "neg": v["neg"]}, f_out)
-            f_out.write("\n")
-
-
-def save_corpus(data: Dict, pids: set, data_dir: PosixPath, split: str):
-    with open(f'{data_dir}/corpus-{split}.jsonl', 'wt', encoding='utf8') as f_out:
-        for k, v in tqdm(data.items(), total=len(data.keys())):
-            if k in pids:
-                json.dump({"pid": k, "text": v}, f_out)
+class DataWriter:
+    @staticmethod
+    def save_triplets(data: Dict, data_dir: Path, split: str) -> None:
+        """Save query triplets (query, positive passages, negative passages) to file."""
+        with open(data_dir / f'queries-{split}.jsonl', 'wt', encoding='utf8') as f_out:
+            for qid, query_data in tqdm(data.items(), desc=f"Saving {split} triplets"):
+                json.dump({
+                    "qid": qid,
+                    "query": query_data["query"],
+                    "pos": query_data["pos"],
+                    "neg": query_data["neg"]
+                }, f_out)
                 f_out.write("\n")
 
+    @staticmethod
+    def save_queries(data: Dict, data_dir: Path, split: str) -> None:
+        """Save queries to file."""
+        with open(data_dir / f'queries-{split}.jsonl', 'wt', encoding='utf8') as f_out:
+            for qid, query_data in tqdm(data.items(), desc=f"Saving {split} queries"):
+                json.dump({"qid": qid, "query": query_data["query"]}, f_out)
+                f_out.write("\n")
 
-def get_N_sample_ids(N: int=200, val_size: int=100):
-    random.seed(42)
-    sampled_ids = random.sample(range(TOTAL_DOCUMENTS), N)
-    train_ids = sampled_ids[val_size:]
+    @staticmethod
+    def save_corpus(data: Dict, pids: Set, data_dir: Path, split: str) -> None:
+        """Save corpus passages to file."""
+        with open(data_dir / f'corpus-{split}.jsonl', 'wt', encoding='utf8') as f_out:
+            for pid, text in tqdm(data.items(), desc=f"Saving {split} corpus"):
+                if pid in pids:
+                    json.dump({"_id": pid, "text": text}, f_out)
+                    f_out.write("\n")
 
-    return train_ids, sampled_ids
+class DataProcessor:
+    def __init__(self, ce_score_margin: float):
+        self.ce_score_margin = ce_score_margin
 
+    def process_query(self, data: Dict, queries: Dict) -> Optional[QueryData]:
+        """Process a single query's data to extract positive and negative passages."""
+        qid = int(data["qid"])
+        
+        # Get positive passages and compute threshold
+        pos_pids = [item["pid"] for item in data["pos"]]
+        if not pos_pids:
+            return None
+            
+        pos_min_ce_score = min(item["ce-score"] for item in data["pos"])
+        ce_score_threshold = pos_min_ce_score - self.ce_score_margin
+        
+        # Get negative passages below threshold
+        neg_pids = {
+            item["pid"] 
+            for system_negs in data["neg"].values()
+            for item in system_negs 
+            if item["ce-score"] <= ce_score_threshold
+        }
+        
+        if not neg_pids:
+            return None
+            
+        return QueryData(
+            qid=qid,
+            query=queries[str(qid)],
+            pos_pids=pos_pids,
+            neg_pids=list(neg_pids)
+        )
 
-def prepare_data(N: int, val_size: int=100):
-    train_ids, sampled_ids = get_N_sample_ids(N=N, val_size=val_size)
-    train_pids, val_pids = set(), set()
-
-    queries = get_queries()
-
-    train_data, val_data = {}, {}
-
-    with gzip.open(HARD_NEGATIVES, 'rt', encoding='utf8') as f_in:
-        for idx, line in tqdm(enumerate(f_in), total=TOTAL_DOCUMENTS):
+    def build_dataset(self, lines: list, queries: Dict) -> Tuple[Dict, Set]:
+        """Build dataset from lines of query data."""
+        dataset_pids = set()
+        dataset = {}
+        
+        for line in tqdm(lines, desc="Processing queries"):
             data = json.loads(line)
-            qid = int(data["qid"])
-
-            if idx in sampled_ids:
-                pos_pids = [item["pid"] for item in data["pos"]]
-                pos_min_ce_score = min([item["ce-score"] for item in data["pos"]])
-                ce_score_threshold = pos_min_ce_score - CE_SCORE_MARGIN
-
-                neg_pids = set()
-
-                for system_negs in data["neg"].values():
-                    for item in system_negs:
-                        if item["ce-score"] <= ce_score_threshold:
-                            neg_pids.add(item["pid"])
+            processed = self.process_query(data, queries)
+            
+            if processed is None:
+                continue
                 
-                if len(pos_pids) > 0 and len(neg_pids) > 0:
-                    if idx in train_ids:
-                        train_pids.update(pos_pids)
-                        train_pids.update(neg_pids)
-                        train_data[qid] = {"query": queries[str(qid)], "pos": pos_pids, "neg": list(neg_pids)}
-                    else:
-                        val_pids.update(pos_pids)
-                        val_pids.update(neg_pids)
-                        val_data[qid] = {"query": queries[str(qid)], "pos": pos_pids, "neg": list(neg_pids)}
+            dataset_pids.update(processed.pos_pids)
+            dataset_pids.update(processed.neg_pids)
+            
+            dataset[processed.qid] = {
+                "query": processed.query,
+                "pos": processed.pos_pids,
+                "neg": processed.neg_pids
+            }
+        
+        return dataset, dataset_pids
 
+def prepare_data(queries: Dict, num_samples: int, val_size: int) -> None:
+    """Prepare training and validation datasets."""
+    # Create output directory
     os.makedirs(PREPARED_DIR, exist_ok=True)
-    save_queries(train_data, PREPARED_DIR, "train")
-    save_queries(val_data, PREPARED_DIR, "val")
-
+    
+    # Initialize processor and writer
+    processor = DataProcessor(CE_SCORE_MARGIN)
+    writer = DataWriter()
+    
+    # Load and shuffle data
+    with gzip.open(HARD_NEGATIVES, 'rt', encoding='utf8') as f_in:
+        lines = f_in.readlines()
+    random.shuffle(lines)
+    
+    # Split into train and validation
+    val_lines = lines[:val_size]
+    train_lines = lines[val_size:num_samples]
+    
+    # Process datasets
+    train_data, _ = processor.build_dataset(train_lines, queries)
+    val_data, val_pids = processor.build_dataset(val_lines, queries)
+    
+    # Save datasets
+    writer.save_triplets(train_data, PREPARED_DIR, "train")
+    writer.save_queries(val_data, PREPARED_DIR, "val")
+    
+    # Save corpus
     corpus = get_corpus()
+    writer.save_corpus(corpus, val_pids, PREPARED_DIR, "val")
 
-    save_corpus(corpus, val_pids, PREPARED_DIR, "val")
-
+def prepare_test_queries(queries: Dict) -> None:
+    """Prepare test queries dataset."""
+    qrels = get_qrels(split="dev")
+    test_queries = {
+        qid: {"query": queries[qid]}
+        for qid, rels in qrels.items()
+        if len(rels) > 0
+    }
+    
+    DataWriter.save_queries(test_queries, PREPARED_DIR, "dev")
 
 if __name__ == '__main__':
     args = OmegaConf.load('src/utils/config.yml').prepare_data
-    prepare_data(N=args.num_samples, val_size=args.val_size)
+    queries = get_queries()
+    prepare_data(queries, num_samples=args.num_samples, val_size=args.val_size)
+    prepare_test_queries(queries)

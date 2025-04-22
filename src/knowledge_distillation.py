@@ -113,7 +113,6 @@ class KnowledgeDistillationTrainer:
         wishart_scale = args.wishart_scale
         paremeterization = args.paremeterization
         self.tokenizer, self.student_model = vbll_model_factory(model_name, reg_weight, paremeterization, prior_scale, wishart_scale, self.device)
-        # self.tokenizer, self.student_model = model_factory(model_name, self.device)
 
     def set_teacher_model(self, args):
         model_name = args.teacher_model_name
