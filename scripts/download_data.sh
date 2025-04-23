@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=18
 #SBATCH --time=00:30:00
-#SBATCH --output=slurm/download_data_%A.out
+#SBATCH --output=slurm/download_data/%A.out
 
 module purge
 module load 2024

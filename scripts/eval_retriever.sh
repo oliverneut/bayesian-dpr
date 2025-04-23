@@ -5,8 +5,8 @@
 #SBATCH --job-name=EvalRetriever
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=18
-#SBATCH --time=01:00:00
-#SBATCH --output=slurm/evaluate_retriever_%A.out
+#SBATCH --time=04:00:00
+#SBATCH --output=slurm/eval_retriever/%A.out
 
 module purge
 module load 2024

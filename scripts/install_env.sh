@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=18
 #SBATCH --time=00:40:00
-#SBATCH --output=slurm/install_environment_%A.out
+#SBATCH --output=slurm/install_environment/%A.out
 
 module purge
 module load 2024

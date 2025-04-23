@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=18
 #SBATCH --time=12:00:00
-#SBATCH --output=slurm/prepare_data_%A.out
+#SBATCH --output=slurm/prepare_data/%A.out
 
 module purge
 module load 2024

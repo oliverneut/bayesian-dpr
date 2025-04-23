@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=18
 #SBATCH --time=18:00:00
-#SBATCH --output=slurm/knowledge_distillation_%A.out
+#SBATCH --output=slurm/knowledge_distillation/%A.out
 
 module purge
 module load 2024
