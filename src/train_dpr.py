@@ -3,7 +3,7 @@ import logging
 
 import torch
 
-from models.model_utils import model_factory
+from utils.model_utils import model_factory
 from data_loaders import get_dataloader, get_qrels, get_corpus_dataloader, get_query_dataloader
 from utils.data_utils import get_query_file
 from trainer import DPRTrainer
