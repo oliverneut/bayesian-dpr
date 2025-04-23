@@ -2,7 +2,7 @@ from omegaconf import OmegaConf
 import logging
 import os
 import torch
-from models.model_utils import vbll_model_factory
+from models.model_utils import vbll_model_factory, model_factory
 from data_loaders import get_qrels, get_corpus_dataloader, get_query_dataloader
 from utils.data_utils import get_query_file
 from encoding import encode_corpus
@@ -20,12 +20,13 @@ def main(kd_args, eval_args):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
+    
+    # tokenizer, model = vbll_model_factory(kd_args.student_model_name, 1, kd_args.paremeterization, kd_args.prior_scale, kd_args.wishart_scale, device)
+    tokenizer, model = model_factory(kd_args.student_model_name, device)
 
-    tokenizer, model = vbll_model_factory(kd_args.student_model_name, 1, kd_args.paremeterization, kd_args.prior_scale, kd_args.wishart_scale, device)
-
-    model_path = os.path.join(kd_args.output_dir, kd_args.ckpt_filename)
-    model.load_state_dict(torch.load(f"{model_path}.pt"))
-    model.eval()
+    # model_path = os.path.join(kd_args.output_dir, kd_args.ckpt_filename)
+    # model.load_state_dict(torch.load(f"{model_path}.pt"))
+    # model.eval()
 
     test_queries = get_query_dataloader(get_query_file(split="dev"),  batch_size=eval_args.batch_size, shuffle=False)
     corpus = get_corpus_dataloader("data/msmarco/corpus.jsonl",  batch_size=eval_args.batch_size, shuffle=False)
