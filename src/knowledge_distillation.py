@@ -2,12 +2,10 @@ from omegaconf import OmegaConf
 import logging
 import os
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from torch.optim import Adam
 from torch.optim.lr_scheduler import LinearLR, SequentialLR
 
-from models.model_utils import model_factory, vbll_model_factory, get_model_save_path
+from utils.model_utils import model_factory, vbll_model_factory, get_model_save_path
 from data_loaders import get_dataloader, get_qrels, get_corpus_dataloader, get_query_dataloader
 from losses import BinaryPassageRetrievalLoss
 from evaluation import Evaluator
@@ -157,7 +155,7 @@ def main(args):
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
-        
+    
     # Load data
     logger.info("Loading data...")
     train_dataloader = get_dataloader(get_query_file(split="train"), batch_size=args.batch_size, shuffle=True)

@@ -2,7 +2,7 @@ from omegaconf import OmegaConf
 import logging
 import os
 import torch
-from models.model_utils import vbll_model_factory, model_factory, get_model_save_path
+from utils.model_utils import vbll_model_factory, model_factory, get_model_save_path
 from data_loaders import get_qrels, get_corpus_dataloader, get_query_dataloader
 from utils.data_utils import get_query_file
 from encoding import encode_corpus
