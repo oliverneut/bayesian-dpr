@@ -8,3 +8,5 @@ scripts/slurm/
 .vscode/
 .DS_Store
 output/distilled_models/
+src/wandb/
+wandb/
