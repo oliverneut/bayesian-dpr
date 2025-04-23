@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch.optim import Adam
 from torch.optim.lr_scheduler import LinearLR, SequentialLR
 
-from models.model_utils import model_factory, vbll_model_factory
+from models.model_utils import model_factory, vbll_model_factory, get_model_save_path
 from data_loaders import get_dataloader, get_qrels, get_corpus_dataloader, get_query_dataloader
 from losses import BinaryPassageRetrievalLoss
 from evaluation import Evaluator
@@ -47,6 +47,7 @@ class KnowledgeDistillationTrainer:
         self.qrels = qrels
         self.device = device
         self.loss_func = BinaryPassageRetrievalLoss()
+        self.save_path = get_model_save_path(args.output_dir, args.ckpt_filename, args.alpha, args.prior_scale, args.wishart_scale)
         self.args = args
     
     def train(self, num_epochs, lr, min_lr, warmup_rate, k=20, alpha=1.0):
@@ -95,9 +96,8 @@ class KnowledgeDistillationTrainer:
             logger.info(f"Validation metrics: nDCG@{k}={ndcg:.4f} | MRR@{k}={mrr:.4f}")
 
             if ndcg > max_ndcg:
-                model_path = os.path.join(args.output_dir, f"{args.ckpt_filename}.pt")
-                torch.save(self.student_model.state_dict(), model_path)
-                logger.info(f"Model saved to {model_path}")
+                torch.save(self.student_model.state_dict(), self.save_path)
+                logger.info(f"Model saved to {self.save_path}")
                 max_ndcg = ndcg
 
     def tokenize_query(self, text):
@@ -142,6 +142,15 @@ class KnowledgeDistillationTrainer:
 def main(args):
     # Set up logging
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
+    logger.info("Starting evaluation with parameters:")
+    logger.info(f"  Model: {args.student_model_name}")
+    logger.info(f"  Batch size: {args.batch_size}")
+    logger.info(f"  k: {args.k}")
+    logger.info(f"  alpha: {args.alpha}")
+    logger.info(f"  prior scale: {args.prior_scale}")
+    logger.info(f"  wishart scale: {args.wishart_scale}")
+    logger.info(f"  lr: {args.lr}")
+    logger.info(f"  min lr: {args.min_lr}")
     
     # Create output directory
     os.makedirs(args.output_dir, exist_ok=True)

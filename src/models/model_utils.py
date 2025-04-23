@@ -2,6 +2,7 @@ from transformers import AutoModel, AutoTokenizer
 import vbll
 import torch
 import torch.nn as nn
+import os
 
 _model_registry = {
     "bert-tiny": "google/bert_uncased_L-2_H-128_A-2",
@@ -48,6 +49,10 @@ def disable_grad(module):
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+
+def get_model_save_path(output_dir, ckpt_filename, alpha, prior_scale, wishart_scale):
+    return os.path.join(output_dir, f"{ckpt_filename}-{alpha}-{prior_scale}-{wishart_scale}.pt")
 
 
 class Retriever(nn.Module):
