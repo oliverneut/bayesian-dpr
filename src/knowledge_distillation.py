@@ -13,7 +13,7 @@ from indexing import FaissIndex
 from encoding import encode_corpus
 from utils.data_utils import get_query_file
 from tqdm import tqdm
-
+import wandb
 logger = logging.getLogger(__name__)
 
 def make_lr_scheduler_with_warmup(model, training_data, lr, min_lr, num_epochs, warmup_rate):
@@ -35,7 +35,7 @@ def make_lr_scheduler_with_warmup(model, training_data, lr, min_lr, num_epochs, 
     return optimizer, scheduler
 
 class KnowledgeDistillationTrainer:
-    def __init__(self, train_dl, val_queries, val_corpus, qrels, device, args):
+    def __init__(self, train_dl, val_queries, val_corpus, qrels, run, device, args):
         self.tokenizer = None
         self.student_model = None
         self.teacher_model = None
@@ -43,6 +43,7 @@ class KnowledgeDistillationTrainer:
         self.val_queries = val_queries
         self.val_corpus = val_corpus
         self.qrels = qrels
+        self.run = run
         self.device = device
         self.loss_func = BinaryPassageRetrievalLoss()
         self.save_path = get_model_save_path(args.output_dir, args.ckpt_filename, args.alpha, args.prior_scale, args.wishart_scale)
@@ -82,6 +83,13 @@ class KnowledgeDistillationTrainer:
 
                 kd_loss = qry_loss + pos_loss + neg_loss
                 loss = alpha * kd_loss + task_loss
+                
+                log_dict = {
+                    "kd_loss": kd_loss.item(),
+                    "task_loss": task_loss.item(),
+                    "loss": loss.item()
+                }
+                self.run.log(log_dict)
                 
                 loss.backward()
                 optimizer.step()
@@ -149,6 +157,11 @@ def main(args):
     logger.info(f"  wishart scale: {args.wishart_scale}")
     logger.info(f"  lr: {args.lr}")
     logger.info(f"  min lr: {args.min_lr}")
+
+    run = wandb.init(
+        entity="oliver-neut-university-of-amsterdam",
+        project="bayesian-dpr",
+        config= OmegaConf.to_container(args))
     
     # Create output directory
     os.makedirs(args.output_dir, exist_ok=True)
@@ -163,7 +176,7 @@ def main(args):
     val_corpus = get_corpus_dataloader("data/prepared/corpus-val.jsonl",  batch_size=args.batch_size, shuffle=False)
     qrels = get_qrels()
 
-    kd_trainer = KnowledgeDistillationTrainer(train_dataloader, val_queries, val_corpus, qrels, device, args)
+    kd_trainer = KnowledgeDistillationTrainer(train_dataloader, val_queries, val_corpus, qrels, run, device, args)
     kd_trainer.set_teacher_model(args)
     kd_trainer.set_student_model(args)
 

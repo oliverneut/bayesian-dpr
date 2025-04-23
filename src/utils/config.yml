@@ -18,7 +18,6 @@ knowledge_distillation:
   warmup_rate: 0.1
 
 prepare_data:
-  num_samples: 502939
   val_size: 100
 
 eval_retriever:

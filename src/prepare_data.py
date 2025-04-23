@@ -110,7 +110,7 @@ class DataProcessor:
         
         return dataset, dataset_pids
 
-def prepare_data(queries: Dict, num_samples: int, val_size: int) -> None:
+def prepare_data(queries: Dict, val_size: int) -> None:
     """Prepare training and validation datasets."""
     # Create output directory
     os.makedirs(PREPARED_DIR, exist_ok=True)
@@ -126,7 +126,7 @@ def prepare_data(queries: Dict, num_samples: int, val_size: int) -> None:
     
     # Split into train and validation
     val_lines = lines[:val_size]
-    train_lines = lines[val_size:num_samples]
+    train_lines = lines[val_size:]
     
     # Process datasets
     train_data, _ = processor.build_dataset(train_lines, queries)
@@ -154,5 +154,5 @@ def prepare_test_queries(queries: Dict) -> None:
 if __name__ == '__main__':
     args = OmegaConf.load('src/utils/config.yml').prepare_data
     queries = get_queries()
-    prepare_data(queries, num_samples=args.num_samples, val_size=args.val_size)
+    prepare_data(queries, val_size=args.val_size)
     prepare_test_queries(queries)
