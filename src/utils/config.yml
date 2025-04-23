@@ -7,7 +7,7 @@ knowledge_distillation:
   output_dir: output/distilled_models
   ckpt_filename: vbll-kd-0.001
   alpha: 0.001
-  k: 20
+  k: 10
   prior_scale: 1.0
   wishart_scale: 0.1
   paremeterization: diagonal
@@ -25,4 +25,4 @@ eval_retriever:
   output_dir: output/evaluations
   ckpt_filename: vbll-kd
   batch_size: 32
-  k: 20
+  k: 10
