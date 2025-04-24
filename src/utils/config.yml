@@ -1,6 +1,7 @@
-knowledge_distillation:
+train:
+  knowledge_distillation: True
   dataset_id: msmarco
-  student_model_name: bert-base
+  model_name: bert-base
   teacher_model_name: bert-base-msmarco
   max_qry_len: 32
   max_psg_len: 256

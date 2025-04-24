@@ -17,7 +17,7 @@ from data_loaders import get_queries, get_corpus, get_qrels
 
 @dataclass
 class QueryData:
-    qid: int
+    qid: str
     query: str
     pos_pids: list
     neg_pids: list
@@ -59,7 +59,7 @@ class DataProcessor:
 
     def process_query(self, data: Dict, queries: Dict) -> Optional[QueryData]:
         """Process a single query's data to extract positive and negative passages."""
-        qid = int(data["qid"])
+        qid = data["qid"]
         
         # Get positive passages and compute threshold
         pos_pids = [item["pid"] for item in data["pos"]]
@@ -82,7 +82,7 @@ class DataProcessor:
             
         return QueryData(
             qid=qid,
-            query=queries[str(qid)],
+            query=queries[qid],
             pos_pids=pos_pids,
             neg_pids=list(neg_pids)
         )
