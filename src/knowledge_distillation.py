@@ -79,14 +79,14 @@ class DPRTrainer:
                 progress_bar.set_postfix({"Loss": loss.item()})
                 self.run.log({"kd_loss": 0, "task_loss": task_loss.item(), "loss": loss.item()})
 
-                ndcg, mrr = self.compute_validation_metrics(k)
-                logger.info(f"Epoch {epoch}/{args.num_epochs} ")
-                logger.info(f"Validation metrics: nDCG@{k}={ndcg:.4f} | MRR@{k}={mrr:.4f}")
+            ndcg, mrr = self.compute_validation_metrics(k)
+            logger.info(f"Epoch {epoch}/{args.num_epochs} ")
+            logger.info(f"Validation metrics: nDCG@{k}={ndcg:.4f} | MRR@{k}={mrr:.4f}")
 
-                if ndcg > max_ndcg:
-                    torch.save(self.model.state_dict(), self.save_path)
-                    logger.info(f"Model saved to {self.save_path}")
-                    max_ndcg = ndcg
+            if ndcg > max_ndcg:
+                torch.save(self.model.state_dict(), self.save_path)
+                logger.info(f"Model saved to {self.save_path}")
+                max_ndcg = ndcg
 
     def tokenize_query(self, text):
         return self.tokenizer(text, padding="max_length", truncation=True, max_length=args.max_qry_len, return_tensors="pt")
@@ -175,7 +175,6 @@ class KnowledgeDistillationTrainer(DPRTrainer):
                 scheduler.step()
                 progress_bar.set_postfix({"Loss": loss.item()})
                 self.run.log({"kd_loss": kd_loss.item(), "task_loss": task_loss.item(), "loss": loss.item()})
-                break
 
             ndcg, mrr = self.compute_validation_metrics(k)
             logger.info(f"Epoch {epoch}/{args.num_epochs} ")
