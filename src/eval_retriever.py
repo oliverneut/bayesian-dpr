@@ -42,7 +42,7 @@ def main(train, eval):
         tokenizer, model = model_factory(train.model_name, device)
         method = "dpr"
 
-    model.load_state_dict(torch.load(f"{model_path}.pt"))
+    model.load_state_dict(torch.load(model_path))
     model.eval()
 
     test_queries = get_query_dataloader(get_query_file(split="dev"),  batch_size=eval.batch_size, shuffle=False)
