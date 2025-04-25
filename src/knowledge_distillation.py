@@ -187,7 +187,7 @@ class KnowledgeDistillationTrainer(DPRTrainer):
 
     def set_model(self, args):
         model_name = args.model_name
-        reg_weight = 1.0 / len(self.train_dl)
+        reg_weight = 1.0 / len(self.train_dl.dataset)
         prior_scale = args.prior_scale
         wishart_scale = args.wishart_scale
         paremeterization = args.paremeterization
