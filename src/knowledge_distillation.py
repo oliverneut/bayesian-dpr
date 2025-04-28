@@ -171,7 +171,7 @@ class KnowledgeDistillationTrainer(DPRTrainer):
 
                 loss.backward()
                 optimizer.step()
-                # torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
                 scheduler.step()
                 progress_bar.set_postfix({"Loss": loss.item()})
                 self.run.log({"kd_loss": kd_loss.item(), "task_loss": task_loss.item(), "loss": loss.item()})
