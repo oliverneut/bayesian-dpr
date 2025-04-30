@@ -8,7 +8,6 @@ from typing import Dict, Set, Tuple, Optional
 from pathlib import Path
 from dataclasses import dataclass
 from utils.config import (
-    TOTAL_DOCUMENTS,
     CE_SCORE_MARGIN,
     HARD_NEGATIVES,
     PREPARED_DIR

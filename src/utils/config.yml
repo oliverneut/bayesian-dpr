@@ -7,7 +7,7 @@ train:
   max_psg_len: 256
   output_dir: output/distilled_models
   ckpt_filename: vbll-kd
-  alpha: 0.001
+  alpha: 0.0
   k: 10
   prior_scale: 1.0
   wishart_scale: 0.1
@@ -21,6 +21,6 @@ train:
 prepare_data:
   val_size: 100
 
-eval_retriever:
+eval:
   output_dir: output/evaluations
   batch_size: 32
