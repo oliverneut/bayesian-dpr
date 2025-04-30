@@ -10,3 +10,4 @@ scripts/slurm/
 output/distilled_models/
 src/wandb/
 wandb/
+output/
