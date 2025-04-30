@@ -149,11 +149,6 @@ class KnowledgeDistillationTrainer(DPRTrainer):
                 qry_enc = self.tokenize_query(qry).to(self.device)
                 pos_enc = self.tokenize_passage(pos_psg).to(self.device)
                 neg_enc = self.tokenize_passage(neg_psg).to(self.device)
-
-                # with torch.no_grad():
-                #     teacher_qry_emb = self.teacher_model(qry_enc)
-                #     teacher_pos_emb = self.teacher_model(pos_enc)
-                #     teacher_neg_emb = self.teacher_model(neg_enc)
                 
                 optimizer.zero_grad()
                 qry_emb = self.model(qry_enc)
@@ -162,21 +157,26 @@ class KnowledgeDistillationTrainer(DPRTrainer):
 
                 task_loss = self.loss_func(qry_emb.predictive.loc, pos_emb.predictive.loc, neg_emb.predictive.loc)
 
-                # qry_loss = qry_emb.train_loss_fn(teacher_qry_emb)
-                # pos_loss = pos_emb.train_loss_fn(teacher_pos_emb)
-                # neg_loss = neg_emb.train_loss_fn(teacher_neg_emb)
+                if alpha > 0:
+                    with torch.no_grad():
+                            teacher_qry_emb = self.teacher_model(qry_enc)
+                            teacher_pos_emb = self.teacher_model(pos_enc)
+                            teacher_neg_emb = self.teacher_model(neg_enc)
+                    qry_loss = qry_emb.train_loss_fn(teacher_qry_emb)
+                    pos_loss = pos_emb.train_loss_fn(teacher_pos_emb)
+                    neg_loss = neg_emb.train_loss_fn(teacher_neg_emb)
+                    kd_loss = qry_loss + pos_loss + neg_loss
+                else:
+                    kd_loss = torch.tensor(0.0)
 
-                # kd_loss = qry_loss + pos_loss + neg_loss
-                # loss = alpha * kd_loss + task_loss
-                loss = task_loss
+                loss = alpha * kd_loss + task_loss
 
                 loss.backward()
                 optimizer.step()
                 # torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
                 scheduler.step()
                 progress_bar.set_postfix({"Loss": loss.item()})
-                # self.run.log({"kd_loss": kd_loss.item(), "task_loss": task_loss.item(), "loss": loss.item()})
-                self.run.log({"kd_loss": 0.0, "task_loss": task_loss.item(), "loss": loss.item()})
+                self.run.log({"kd_loss": kd_loss.item(), "task_loss": task_loss.item(), "loss": loss.item()})
 
             ndcg, mrr = self.compute_validation_metrics(k)
             logger.info(f"Epoch {epoch}/{args.num_epochs} ")
