@@ -140,6 +140,7 @@ class KnowledgeDistillationTrainer(DPRTrainer):
             self.model, self.train_dl, lr, min_lr, num_epochs, warmup_rate
         )
         max_ndcg = -1.0
+        patience = 3
 
         for epoch in range(1, num_epochs + 1):
             self.model.train()
@@ -156,7 +157,7 @@ class KnowledgeDistillationTrainer(DPRTrainer):
                 neg_emb = self.model(neg_enc)
 
                 task_loss = self.loss_func(qry_emb.predictive.loc, pos_emb.predictive.loc, neg_emb.predictive.loc)
-
+                
                 if alpha > 0:
                     with torch.no_grad():
                             teacher_qry_emb = self.teacher_model(qry_enc)
@@ -172,8 +173,8 @@ class KnowledgeDistillationTrainer(DPRTrainer):
                 loss = alpha * kd_loss + task_loss
 
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
                 optimizer.step()
-                # torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
                 scheduler.step()
                 progress_bar.set_postfix({"Loss": loss.item()})
                 self.run.log({"kd_loss": kd_loss.item(), "task_loss": task_loss.item(), "loss": loss.item()})
@@ -187,6 +188,13 @@ class KnowledgeDistillationTrainer(DPRTrainer):
                 torch.save(self.model.state_dict(), self.save_path)
                 logger.info(f"Model saved to {self.save_path}")
                 max_ndcg = ndcg
+                patience = 3
+            else:
+                patience -= 1
+
+            if patience <= 0:
+                logger.info(f"Early stopping at epoch {epoch}")
+                break
 
     def set_model(self, args):
         model_name = args.model_name
