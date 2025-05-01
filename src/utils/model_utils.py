@@ -3,6 +3,7 @@ import vbll
 import torch
 import torch.nn as nn
 import os
+from huggingface_hub import PyTorchModelHubMixin
 
 _model_registry = {
     "bert-tiny": "google/bert_uncased_L-2_H-128_A-2",
@@ -77,7 +78,7 @@ class Retriever(nn.Module):
         return tokenizer, cls(backbone, device=device)
 
 
-class BERTRetriever(Retriever):
+class BERTRetriever(Retriever, PyTorchModelHubMixin):
     def __init__(self, backbone, device="cpu"):
         super().__init__(backbone, device)
         disable_grad(self.backbone.embeddings)
@@ -88,7 +89,7 @@ class BERTRetriever(Retriever):
         return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
     
 
-class VBLLRetriever(Retriever):
+class VBLLRetriever(Retriever, PyTorchModelHubMixin):
     def __init__(self, backbone, reg_weight, parameterization, prior_scale, wishart_scale, device="cpu"):
         super().__init__(backbone, device)
         disable_grad(self.backbone.embeddings)

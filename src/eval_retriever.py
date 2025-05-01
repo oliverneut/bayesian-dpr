@@ -36,7 +36,7 @@ def main(train, eval):
     logger.info(f"Using device: {device}")
     
     if train.knowledge_distillation:
-        tokenizer, model = vbll_model_factory(train.model_name, 1, train.paremeterization, train.prior_scale, train.wishart_scale, device)
+        tokenizer, model = vbll_model_factory(train.model_name, 1, train.parameterization, train.prior_scale, train.wishart_scale, device)
         method = "vbll"
     else:
         tokenizer, model = model_factory(train.model_name, device)

@@ -139,7 +139,7 @@ class KnowledgeDistillationTrainer(DPRTrainer):
         optimizer, scheduler = make_lr_scheduler_with_warmup(
             self.model, self.train_dl, lr, min_lr, num_epochs, warmup_rate
         )
-        max_ndcg = -1.0
+        max_mrr = -1.0
         patience = 3
 
         for epoch in range(1, num_epochs + 1):
@@ -184,10 +184,10 @@ class KnowledgeDistillationTrainer(DPRTrainer):
             logger.info(f"Validation metrics: nDCG@{k}={ndcg:.4f} | MRR@{k}={mrr:.4f}")
             self.run.log({f"nDCG@{k}": ndcg, f"MRR@{k}": mrr})
 
-            if ndcg > max_ndcg:
+            if mrr > max_mrr:
                 torch.save(self.model.state_dict(), self.save_path)
                 logger.info(f"Model saved to {self.save_path}")
-                max_ndcg = ndcg
+                max_mrr = mrr
                 patience = 3
             else:
                 patience -= 1
@@ -201,8 +201,8 @@ class KnowledgeDistillationTrainer(DPRTrainer):
         reg_weight = 1.0 / len(self.train_dl.dataset)
         prior_scale = args.prior_scale
         wishart_scale = args.wishart_scale
-        paremeterization = args.paremeterization
-        self.tokenizer, self.model = vbll_model_factory(model_name, reg_weight, paremeterization, prior_scale, wishart_scale, self.device)
+        parameterization = args.parameterization
+        self.tokenizer, self.model = vbll_model_factory(model_name, reg_weight, parameterization, prior_scale, wishart_scale, self.device)
 
     def set_teacher_model(self, args):
         model_name = args.teacher_model_name
