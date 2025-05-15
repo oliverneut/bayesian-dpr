@@ -7,6 +7,9 @@ from types import SimpleNamespace
 from indexing import FaissIndex
 from pytrec_eval import RelevanceEvaluator
 from data_loaders import get_qrels
+import logging
+
+logger = logging.getLogger(__name__)
 
 def uncertainty_score(cov):
     return torch.norm(cov)
@@ -15,7 +18,7 @@ def score_ranking(ranking):
     pass
 
 def main(args, run_id):
-    model_dir = f"{args.output_dir}/{run_id}"
+    model_dir = f"output/models/{run_id}"
     psg_embs_path = f"{model_dir}/psg_embs.pt"
     psg_ids_path = f"{model_dir}/psg_ids.pt"
     qry_embs_path = f"{model_dir}/qry_embs.pt"
@@ -56,11 +59,15 @@ def main(args, run_id):
             ncdg_scores.append(ndcg)
             mrr_scores.append(mrrr)
 
-    return pearsonr(uncertainty_scores, ncdg_scores), pearsonr(uncertainty_scores, mrr_scores)
+    ndcg_corr =  pearsonr(uncertainty_scores, ncdg_scores)
+    mrr_corr = pearsonr(uncertainty_scores, mrr_scores)
+
+    logger.info(f"nDCG Correlation: {ndcg_corr}")
+    logger.info(f"MRR Correlation: {mrr_corr}")
 
 if __name__ == '__main__':
     wandb_args = OmegaConf.load('src/utils/config.yml').wandb
-    run_id = "79mqroci"
+    run_id = "10nfecme"
     api = wandb.Api()
     config = api.run(f"{wandb_args.entity}/{wandb_args.project}/{run_id}").config
     args = SimpleNamespace(**config)
