@@ -5,7 +5,7 @@
 #SBATCH --job-name=RunKD
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=18
-#SBATCH --time=20:00:00
+#SBATCH --time=1-16:00:00
 #SBATCH --output=slurm/knowledge_distillation/%A.out
 
 module purge

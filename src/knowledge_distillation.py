@@ -159,7 +159,7 @@ class KnowledgeDistillationTrainer(DPRTrainer):
                 else:
                     kd_loss = torch.tensor(0.0)
 
-                loss = alpha * kd_loss + task_loss
+                loss = alpha * torch.log(kd_loss) + task_loss
 
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)

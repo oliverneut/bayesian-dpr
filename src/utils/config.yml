@@ -8,9 +8,11 @@ train:
   output_dir: output/models
   ckpt_filename: vbll-kd
   alpha: 0.001
+  alpha: 0.001
   k: 10
   prior_scale: 1.0
   wishart_scale: 0.1
+  parameterization: diagonal
   parameterization: diagonal
   batch_size: 16
   num_epochs: 20
