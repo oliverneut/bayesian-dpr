@@ -5,18 +5,22 @@ train:
   teacher_model_name: bert-base-msmarco
   max_qry_len: 32
   max_psg_len: 256
-  output_dir: output/distilled_models
+  output_dir: output/models
   ckpt_filename: vbll-kd
-  alpha: 0.0
+  alpha: 0.001
   k: 10
   prior_scale: 1.0
   wishart_scale: 0.1
-  paremeterization: diagonal
+  parameterization: diagonal
   batch_size: 16
   num_epochs: 20
   lr: 5.0e-6 # 5.0e-6
   min_lr: 5.0e-8 # 5.0e-8
   warmup_rate: 0.1
+
+wandb:
+  entity: oliver-neut-university-of-amsterdam
+  project: bayesian-dpr
 
 prepare_data:
   val_size: 100
@@ -24,3 +28,13 @@ prepare_data:
 eval:
   output_dir: output/evaluations
   batch_size: 32
+
+upload:
+  output_dir: output/distilled_models
+  ckpt_filename: bert-base
+  alpha: 0.001
+  prior_scale: 1.0
+  wishart_scale: 0.1
+  model_name: bert-base
+  parameterization: diagonal
+  repo_name: bayesian-dpr-bert-base

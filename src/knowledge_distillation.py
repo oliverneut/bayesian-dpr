@@ -35,7 +35,7 @@ def make_lr_scheduler_with_warmup(model, training_data, lr, min_lr, num_epochs, 
     return optimizer, scheduler
 
 class DPRTrainer:
-    def __init__(self, train_dl, val_queries, val_corpus, qrels, run, device, args):
+    def __init__(self, train_dl, val_queries, val_corpus, qrels, run, device, save_path, args):
         self.tokenizer = None
         self.model = None
         self.train_dl = train_dl
@@ -44,9 +44,9 @@ class DPRTrainer:
         self.qrels = qrels
         self.run = run
         self.device = device
+        self.save_path = save_path
         self.method = "dpr"
         self.loss_func = BinaryPassageRetrievalLoss()
-        self.save_path = get_model_save_path(args.output_dir, args.ckpt_filename, args.alpha, args.prior_scale, args.wishart_scale)
         self.args = args
 
     def train(self, num_epochs, lr, min_lr, warmup_rate, k=20):
@@ -89,14 +89,13 @@ class DPRTrainer:
                 max_ndcg = ndcg
 
     def tokenize_query(self, text):
-        return self.tokenizer(text, padding="max_length", truncation=True, max_length=args.max_qry_len, return_tensors="pt")
+        return self.tokenizer(text, padding="max_length", truncation=True, max_length=self.args.max_qry_len, return_tensors="pt")
     
     def tokenize_passage(self, text):
-        return self.tokenizer(text, padding="max_length", truncation=True, max_length=args.max_psg_len, return_tensors="pt")
+        return self.tokenizer(text, padding="max_length", truncation=True, max_length=self.args.max_psg_len, return_tensors="pt")
     
-    def set_model(self, args):
-        model_name = args.model_name
-        self.tokenizer, self.model = model_factory(model_name, self.device)
+    def set_model(self):
+        self.tokenizer, self.model = model_factory(self.args.model_name, self.device)
 
     def compute_validation_metrics(self, k=20):
         self.model.eval()
@@ -120,20 +119,10 @@ class DPRTrainer:
 
 
 class KnowledgeDistillationTrainer(DPRTrainer):
-    def __init__(self, train_dl, val_queries, val_corpus, qrels, run, device, args):
-        self.tokenizer = None
-        self.model = None
+    def __init__(self, train_dl, val_queries, val_corpus, qrels, run, device, save_path, args):
+        super().__init__(train_dl, val_queries, val_corpus, qrels, run, device, save_path, args)
         self.teacher_model = None
-        self.train_dl = train_dl
-        self.val_queries = val_queries
-        self.val_corpus = val_corpus
-        self.qrels = qrels
-        self.run = run
-        self.device = device
         self.method = "vbll"
-        self.loss_func = BinaryPassageRetrievalLoss()
-        self.save_path = get_model_save_path(args.output_dir, args.ckpt_filename, args.alpha, args.prior_scale, args.wishart_scale)
-        self.args = args
     
     def train(self, num_epochs, lr, min_lr, warmup_rate, k=20, alpha=1.0):
         optimizer, scheduler = make_lr_scheduler_with_warmup(
@@ -178,9 +167,11 @@ class KnowledgeDistillationTrainer(DPRTrainer):
                 scheduler.step()
                 progress_bar.set_postfix({"Loss": loss.item()})
                 self.run.log({"kd_loss": kd_loss.item(), "task_loss": task_loss.item(), "loss": loss.item()})
-
-            ndcg, mrr = self.compute_validation_metrics(k)
-            logger.info(f"Epoch {epoch}/{args.num_epochs} ")
+                break
+            
+            ndcg, mrr = 0, 0
+            # ndcg, mrr = self.compute_validation_metrics(k)
+            logger.info(f"Epoch {epoch}/{self.args.num_epochs} ")
             logger.info(f"Validation metrics: nDCG@{k}={ndcg:.4f} | MRR@{k}={mrr:.4f}")
             self.run.log({f"nDCG@{k}": ndcg, f"MRR@{k}": mrr})
 
@@ -196,39 +187,26 @@ class KnowledgeDistillationTrainer(DPRTrainer):
                 logger.info(f"Early stopping at epoch {epoch}")
                 break
 
-    def set_model(self, args):
-        model_name = args.model_name
+    def set_model(self):
+        model_name = self.args.model_name
         reg_weight = 1.0 / len(self.train_dl.dataset)
-        prior_scale = args.prior_scale
-        wishart_scale = args.wishart_scale
-        parameterization = args.parameterization
+        prior_scale = self.args.prior_scale
+        wishart_scale = self.args.wishart_scale
+        parameterization = self.args.parameterization
         self.tokenizer, self.model = vbll_model_factory(model_name, reg_weight, parameterization, prior_scale, wishart_scale, self.device)
 
-    def set_teacher_model(self, args):
-        model_name = args.teacher_model_name
-        _, self.teacher_model = model_factory(model_name, self.device)
+    def set_teacher_model(self):
+        _, self.teacher_model = model_factory(self.args.teacher_model_name, self.device)
         self.teacher_model.eval()
 
-def main(args):
+def main(args, run):
     # Set up logging
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
-    logger.info("Starting evaluation with parameters:")
-    logger.info(f"  Model: {args.model_name}")
-    logger.info(f"  Batch size: {args.batch_size}")
-    logger.info(f"  k: {args.k}")
-    logger.info(f"  alpha: {args.alpha}")
-    logger.info(f"  prior scale: {args.prior_scale}")
-    logger.info(f"  wishart scale: {args.wishart_scale}")
-    logger.info(f"  lr: {args.lr}")
-    logger.info(f"  min lr: {args.min_lr}")
-
-    run = wandb.init(
-        entity="oliver-neut-university-of-amsterdam",
-        project="bayesian-dpr",
-        config= OmegaConf.to_container(args))
     
     # Create output directory
-    os.makedirs(args.output_dir, exist_ok=True)
+    save_dir = f"{args.output_dir}/{run.id}"
+    save_path = f"{save_dir}/model.pt"
+    os.makedirs(save_dir, exist_ok=True)
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
@@ -241,13 +219,13 @@ def main(args):
     qrels = get_qrels()
 
     if args.knowledge_distillation:
-        trainer = KnowledgeDistillationTrainer(train_dataloader, val_queries, val_corpus, qrels, run, device, args)
-        trainer.set_teacher_model(args)
-        trainer.set_model(args)
+        trainer = KnowledgeDistillationTrainer(train_dataloader, val_queries, val_corpus, qrels, run, device, save_path, args)
+        trainer.set_teacher_model()
+        trainer.set_model()
         trainer.train(args.num_epochs, args.lr, args.min_lr, args.warmup_rate, k=args.k, alpha=args.alpha)
     else:
-        trainer = DPRTrainer(train_dataloader, val_queries, val_corpus, qrels, run, device, args)
-        trainer.set_model(args)
+        trainer = DPRTrainer(train_dataloader, val_queries, val_corpus, qrels, run, device, save_path, args)
+        trainer.set_model()
         trainer.train(args.num_epochs, args.lr, args.min_lr, args.warmup_rate, k=args.k)
 
     trainer.run.finish()
@@ -255,5 +233,6 @@ def main(args):
     logger.info(f"Training completed after {args.num_epochs} epochs!")
 
 if __name__ == '__main__':
-    args = OmegaConf.load('src/utils/config.yml').train
-    main(args)
+    args = OmegaConf.load('src/utils/config.yml')
+    run = wandb.init(entity=args.wandb.entity, project=args.wandb.project, config=OmegaConf.to_container(args.train))
+    main(args.train, run)
