@@ -5,7 +5,7 @@
 #SBATCH --job-name=QPP
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=18
-#SBATCH --time=00:10:00
+#SBATCH --time=00:20:00
 #SBATCH --output=slurm/qpp/%A.out
 
 module purge
