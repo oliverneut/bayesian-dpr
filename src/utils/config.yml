@@ -21,9 +21,12 @@ train:
 wandb:
   entity: oliver-neut-university-of-amsterdam
   project: bayesian-dpr
+  run_id: 79mqroci
 
 prepare_data:
   val_size: 100
+  dataset_id: msmarco
+  ce_score_margin: 3
 
 eval:
   output_dir: output/evaluations

@@ -1,17 +1,12 @@
 from omegaconf import OmegaConf
 import gzip
 import json
-import os
 from tqdm import tqdm
 import random
 from typing import Dict, Set, Tuple, Optional
 from pathlib import Path
 from dataclasses import dataclass
-from utils.config import (
-    CE_SCORE_MARGIN,
-    HARD_NEGATIVES,
-    PREPARED_DIR
-)
+from utils.data_utils import DatasetConfig
 from data_loaders import get_queries, get_corpus, get_qrels
 
 @dataclass
@@ -44,7 +39,7 @@ class DataWriter:
                 f_out.write("\n")
 
     @staticmethod
-    def save_corpus(data: Dict, pids: Set, data_dir: Path, split: str) -> None:
+    def save_corpus(data: Dict, pids: Set, data_dir: str, split: str) -> None:
         """Save corpus passages to file."""
         with open(data_dir / f'corpus-{split}.jsonl', 'wt', encoding='utf8') as f_out:
             for pid, text in tqdm(data.items(), desc=f"Saving {split} corpus"):
@@ -109,49 +104,52 @@ class DataProcessor:
         
         return dataset, dataset_pids
 
-def prepare_data(queries: Dict, val_size: int) -> None:
-    """Prepare training and validation datasets."""
-    # Create output directory
-    os.makedirs(PREPARED_DIR, exist_ok=True)
-    
+def prepare_data(queries: Dict, data_cfg: DatasetConfig, args) -> None:
+    """Prepare training and validation datasets."""    
     # Initialize processor and writer
-    processor = DataProcessor(CE_SCORE_MARGIN)
+    processor = DataProcessor(args.ce_score_margin)
     writer = DataWriter()
     
     # Load and shuffle data
-    with gzip.open(HARD_NEGATIVES, 'rt', encoding='utf8') as f_in:
+    with gzip.open(data_cfg.get_hard_negatives_file(), 'rt', encoding='utf8') as f_in:
         lines = f_in.readlines()
     random.shuffle(lines)
     
     # Split into train and validation
-    val_lines = lines[:val_size]
-    train_lines = lines[val_size:]
+    val_lines = lines[:args.val_size]
+    train_lines = lines[args.val_size:]
     
     # Process datasets
     train_data, _ = processor.build_dataset(train_lines, queries)
     val_data, val_pids = processor.build_dataset(val_lines, queries)
     
     # Save datasets
-    writer.save_triplets(train_data, PREPARED_DIR, "train")
-    writer.save_queries(val_data, PREPARED_DIR, "val")
+    writer.save_triplets(train_data, data_cfg.prepared_dir, "train")
+    writer.save_queries(val_data, data_cfg.prepared_dir, "val")
     
     # Save corpus
-    corpus = get_corpus()
-    writer.save_corpus(corpus, val_pids, PREPARED_DIR, "val")
+    corpus = get_corpus(data_cfg.get_corpus_file())
+    writer.save_corpus(corpus, val_pids, data_cfg.prepared_dir, "val")
 
-def prepare_test_queries(queries: Dict) -> None:
+def prepare_test_queries(queries: Dict, data_cfg: DatasetConfig) -> None:
     """Prepare test queries dataset."""
-    qrels = get_qrels(split="dev")
+    qrels = get_qrels(data_cfg.get_qrels_file(split=data_cfg.test_name))
     test_queries = {
         qid: {"query": queries[qid]}
         for qid, rels in qrels.items()
         if len(rels) > 0
     }
     
-    DataWriter.save_queries(test_queries, PREPARED_DIR, "dev")
+    DataWriter.save_queries(test_queries, data_cfg.prepared_dir, data_cfg.test_name)
 
 if __name__ == '__main__':
     args = OmegaConf.load('src/utils/config.yml').prepare_data
-    queries = get_queries()
-    prepare_data(queries, val_size=args.val_size)
-    prepare_test_queries(queries)
+
+    data_cfg = DatasetConfig(args.dataset_id)
+    
+    queries = get_queries(data_cfg.get_queries_file())
+
+    if args.dataset_id == "msmarco":
+        prepare_data(queries, data_cfg, args)
+
+    prepare_test_queries(queries, data_cfg)

@@ -1,15 +1,14 @@
 import json
 import csv
 from collections import defaultdict
-from utils.config import QUERY_FILE, CORPUS_FILE, TRAIN_QRELS_FILE
 from datasets import Dataset as HuggingFaceDataset
 from torch.utils.data import DataLoader, Dataset
-from utils.data_utils import get_qrels_file
 import random
+import torch
 
-def get_queries():
+def get_queries(query_file: str):
     queries = {}
-    with open(QUERY_FILE, encoding="utf8") as fIn:
+    with open(query_file, encoding="utf8") as fIn:
         for line in fIn:
             line = json.loads(line)
             queries[line.get("_id")] = line.get("text")
@@ -17,9 +16,9 @@ def get_queries():
     return queries
 
 
-def get_corpus():
+def get_corpus(corpus_file: str):
     corpus = {}
-    with open(CORPUS_FILE, encoding="utf8") as fIn:
+    with open(corpus_file, encoding="utf8") as fIn:
         for line in fIn:
             line = json.loads(line)
             corpus[line.get("_id")] = line.get("text")
@@ -27,10 +26,9 @@ def get_corpus():
     return corpus
 
 
-def get_qrels(split="train"):
+def get_qrels(qrels_file: str):
     qrels = defaultdict(dict)
-    filepath = get_qrels_file(split)
-    reader = csv.reader(open(filepath, encoding="utf-8"), delimiter="\t", quoting=csv.QUOTE_MINIMAL)
+    reader = csv.reader(open(qrels_file, encoding="utf-8"), delimiter="\t", quoting=csv.QUOTE_MINIMAL)
     next(reader)
     for row in reader:
         q_id, p_id, score = row[0], row[1], int(row[2])
@@ -46,6 +44,17 @@ def _load_data(data_file):
         raise NotImplementedError("Data file with format {} not supported.".format(data_file.split(".")[-1]))
     return data
 
+class EmbeddingDataset(Dataset):
+    def __init__(self, qry_embs_path, qry_ids_path):
+        self.data = torch.load(qry_embs_path)
+        self.ids = torch.load(qry_ids_path)
+        self._num_samples = len(self.data)
+
+    def __len__(self):
+        return self._num_samples
+    
+    def __getitem__(self, i):
+        return self.data[i], self.ids[i]
 
 class DPRDataset(Dataset):
     def __init__(self, data_file):

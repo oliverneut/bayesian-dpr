@@ -15,7 +15,6 @@ _model_registry = {
     "distilbert-base-msmarco-tasb": "sentence-transformers/msmarco-distilbert-base-tas-b",
 }
 
-
 def model_factory(model_name, device):
     if model_name.startswith("bert"):
         retriever_class = BERTRetriever
@@ -25,7 +24,6 @@ def model_factory(model_name, device):
 
     return tokenizer, model
 
-
 def vbll_model_factory(model_name, reg_weight, parameterization, prior_scale, wishart_scale, device):
     retriever_class = VBLLRetriever
     hf_model_id = get_hf_model_id(model_name)
@@ -33,28 +31,19 @@ def vbll_model_factory(model_name, reg_weight, parameterization, prior_scale, wi
 
     return tokenizer, model
 
-
 def get_hf_model_id(model_name):
     return _model_registry[model_name]
-
 
 def enable_grad(module):
     for p in module.parameters():
         p.requires_grad = True
 
-
 def disable_grad(module):
     for p in module.parameters():
         p.requires_grad = False
 
-
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
-
-
-def get_model_save_path(output_dir, ckpt_filename, alpha, prior_scale, wishart_scale):
-    return os.path.join(output_dir, f"{ckpt_filename}-{alpha}-{prior_scale}-{wishart_scale}.pt")
-
 
 class Retriever(nn.Module):
     def __init__(self, backbone, device="cpu"):
@@ -77,7 +66,6 @@ class Retriever(nn.Module):
         backbone = AutoModel.from_pretrained(model_name, **hf_kwargs)
         return tokenizer, cls(backbone, device=device)
 
-
 class BERTRetriever(Retriever, PyTorchModelHubMixin):
     def __init__(self, backbone, device="cpu"):
         super().__init__(backbone, device)
@@ -88,7 +76,6 @@ class BERTRetriever(Retriever, PyTorchModelHubMixin):
         input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
         return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
     
-
 class VBLLRetriever(Retriever, PyTorchModelHubMixin):
     def __init__(self, backbone, reg_weight, parameterization, prior_scale, wishart_scale, device="cpu"):
         super().__init__(backbone, device)
