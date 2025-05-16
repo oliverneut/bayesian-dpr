@@ -17,10 +17,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 def uncertainty_score(cov):
-    return torch.linalg.vector_norm(cov, ord=2, dim=2)
+    return torch.linalg.vector_norm(cov, ord=2, dim=1)
 
-def main(args, run_id: str, data_cfg: DatasetConfig):
+def main(run_id: str, data_cfg: DatasetConfig):
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
+    logger.info(f"Run ID: {run_id}")
+    logger.info(f"Dataset id: {data_cfg.dataset_id}")
 
     model_dir = f"output/models/{run_id}"
     psg_embs_path = f"{model_dir}/psg_embs.pt"
@@ -46,9 +48,9 @@ def main(args, run_id: str, data_cfg: DatasetConfig):
 
     with torch.no_grad():
         for qry_embs, qry_ids in tqdm(qry_dataloader, desc="Computing QPP scores"):
-            mean, cov = qry_embs[:,0,:], qry_embs[:,1:,:]
+            mean, cov = qry_embs[:,0,:], qry_embs[:,1,:]
 
-            uncertainty_scores += uncertainty_score(cov).squeeze().tolist()
+            uncertainty_scores += uncertainty_score(cov).tolist()
             for qry_id, uncertainty in zip(qry_ids, uncertainty_scores):
                 qpp_scores[qry_id]['uncertainty'] = uncertainty
 
@@ -81,7 +83,4 @@ def main(args, run_id: str, data_cfg: DatasetConfig):
 if __name__ == '__main__':
     args = OmegaConf.load('src/utils/config.yml')
     data_cfg = DatasetConfig(args.prepare_data.dataset_id)
-    api = wandb.Api()
-    config = api.run(f"{args.wandb.entity}/{args.wandb.project}/{args.wandb.run_id}").config
-    params = SimpleNamespace(**config)
-    main(params, args.wandb.run_id, data_cfg)
+    main(args.wandb.run_id, data_cfg)

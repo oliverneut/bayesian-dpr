@@ -204,7 +204,7 @@ def main(args, run):
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
     
     # Create output directory
-    save_dir = f"{args.output_dir}/{run.id}"
+    save_dir = f"output/models/{run.id}"
     save_path = f"{save_dir}/model.pt"
     os.makedirs(save_dir, exist_ok=True)
     
