@@ -5,9 +5,7 @@ train:
   teacher_model_name: bert-base-msmarco
   max_qry_len: 32
   max_psg_len: 256
-  output_dir: output/models
-  ckpt_filename: vbll-kd
-  alpha: 0.001
+  alpha: 0.01
   k: 10
   prior_scale: 1.0
   wishart_scale: 0.1
@@ -21,7 +19,7 @@ train:
 wandb:
   entity: oliver-neut-university-of-amsterdam
   project: bayesian-dpr
-  run_id: 79mqroci
+  run_id: 10nfecme
 
 prepare_data:
   val_size: 100
