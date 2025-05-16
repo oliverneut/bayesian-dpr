@@ -4,17 +4,18 @@ import os
 import torch
 from torch.optim import Adam
 from torch.optim.lr_scheduler import LinearLR, SequentialLR
-
-from utils.model_utils import model_factory, vbll_model_factory, get_model_save_path
+from utils.data_utils import DatasetConfig
+from utils.model_utils import model_factory, vbll_model_factory
 from data_loaders import get_dataloader, get_qrels, get_corpus_dataloader, get_query_dataloader
 from losses import BinaryPassageRetrievalLoss
 from evaluation import Evaluator
 from indexing import FaissIndex
 from encoding import encode_corpus
-from utils.data_utils import get_query_file
 from tqdm import tqdm
 import wandb
+
 logger = logging.getLogger(__name__)
+
 
 def make_lr_scheduler_with_warmup(model, training_data, lr, min_lr, num_epochs, warmup_rate):
     optimizer = Adam(model.parameters(), lr=lr)
@@ -33,6 +34,7 @@ def make_lr_scheduler_with_warmup(model, training_data, lr, min_lr, num_epochs, 
         decay_iters,
     )
     return optimizer, scheduler
+
 
 class DPRTrainer:
     def __init__(self, train_dl, val_queries, val_corpus, qrels, run, device, save_path, args):
@@ -167,7 +169,6 @@ class KnowledgeDistillationTrainer(DPRTrainer):
                 scheduler.step()
                 progress_bar.set_postfix({"Loss": loss.item()})
                 self.run.log({"kd_loss": kd_loss.item(), "task_loss": task_loss.item(), "loss": loss.item()})
-                break
             
             ndcg, mrr = 0, 0
             # ndcg, mrr = self.compute_validation_metrics(k)
@@ -199,9 +200,12 @@ class KnowledgeDistillationTrainer(DPRTrainer):
         _, self.teacher_model = model_factory(self.args.teacher_model_name, self.device)
         self.teacher_model.eval()
 
-def main(args, run):
+
+def main(args, run, data_cfg: DatasetConfig):
     # Set up logging
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
+    logger.info(f"Run ID: {run.id}")
+    logger.info(f"Dataset id: {data_cfg.dataset_id}")
     
     # Create output directory
     save_dir = f"output/models/{run.id}"
@@ -213,10 +217,10 @@ def main(args, run):
     
     # Load data
     logger.info("Loading data...")
-    train_dataloader = get_dataloader(get_query_file(split="train"), batch_size=args.batch_size, shuffle=True)
-    val_queries = get_query_dataloader(get_query_file(split="val"),  batch_size=args.batch_size, shuffle=False)
-    val_corpus = get_corpus_dataloader("data/prepared/corpus-val.jsonl",  batch_size=args.batch_size, shuffle=False)
-    qrels = get_qrels()
+    train_dataloader = get_dataloader(data_cfg.get_query_file(split="train"), data_cfg.get_corpus_file(),  batch_size=args.batch_size, shuffle=True)
+    val_queries = get_query_dataloader(data_cfg.get_query_file(split="val"),  batch_size=args.batch_size, shuffle=False)
+    val_corpus = get_corpus_dataloader(data_cfg.get_corpus_file(), batch_size=args.batch_size, shuffle=False)
+    qrels = get_qrels(data_cfg.get_qrels_file(split="train"))
 
     if args.knowledge_distillation:
         trainer = KnowledgeDistillationTrainer(train_dataloader, val_queries, val_corpus, qrels, run, device, save_path, args)
@@ -232,7 +236,9 @@ def main(args, run):
 
     logger.info(f"Training completed after {args.num_epochs} epochs!")
 
+
 if __name__ == '__main__':
     args = OmegaConf.load('src/utils/config.yml')
     run = wandb.init(entity=args.wandb.entity, project=args.wandb.project, config=OmegaConf.to_container(args.train))
-    main(args.train, run)
+    data_cfg = DatasetConfig(args.prepare_data.dataset_id)
+    main(args.train, run, data_cfg)

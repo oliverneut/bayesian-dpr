@@ -38,8 +38,8 @@ def get_qrels(qrels_file: str):
 
 
 def _load_data(data_file):
-    if data_file.endswith(".jsonl"):
-        data = HuggingFaceDataset.from_json(data_file)
+    if data_file.suffix == ".jsonl":
+        data = HuggingFaceDataset.from_json(str(data_file))
     else:
         raise NotImplementedError("Data file with format {} not supported.".format(data_file.split(".")[-1]))
     return data
@@ -57,10 +57,10 @@ class EmbeddingDataset(Dataset):
         return self.data[i], self.ids[i]
 
 class DPRDataset(Dataset):
-    def __init__(self, data_file):
+    def __init__(self, data_file, corpus_file):
         self.data = _load_data(data_file)
         self._num_samples = len(self.data)
-        self.corpus = get_corpus()
+        self.corpus = get_corpus(corpus_file)
 
     def __len__(self):
         return self._num_samples
@@ -99,8 +99,8 @@ class CorpusDataset(Dataset):
         return (self.data[i]["_id"], self.data[i]["text"])
 
 
-def get_dataloader(data_file, batch_size=32, shuffle=False):
-    dataset = DPRDataset(data_file=data_file)
+def get_dataloader(data_file, corpus_file, batch_size=32, shuffle=False):
+    dataset = DPRDataset(data_file=data_file, corpus_file=corpus_file)
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, pin_memory=True, drop_last=True)
 
 
