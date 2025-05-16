@@ -36,7 +36,7 @@ def main(args, run_id: str, data_cfg: DatasetConfig):
     qrels = get_qrels(data_cfg.get_qrels_file(split=data_cfg.test_name))
 
     uncertainty_scores = []
-    ncdg_scores = []
+    ndcg_scores = []
     mrr_scores = []
     
     with torch.no_grad():
@@ -44,7 +44,7 @@ def main(args, run_id: str, data_cfg: DatasetConfig):
             mean, cov = qry_embs[:,0,:], qry_embs[:,1:,:]
             run = {}
             uncertainty = uncertainty_score(cov)
-            uncertainty_scores.append(uncertainty)
+            uncertainty_scores += uncertainty.squeeze().tolist()
 
             scores, indices = index.search(mean, k=10)
 
@@ -59,10 +59,10 @@ def main(args, run_id: str, data_cfg: DatasetConfig):
             results = evaluator.evaluate(run)
 
             for _, metrics in results.items():
-                 ncdg_scores.append(metrics['ndcg'])
+                 ndcg_scores.append(metrics['ndcg'])
                  mrr_scores.append(metrics['recip_rank'])
 
-    ndcg_corr =  pearsonr(uncertainty_scores, ncdg_scores)
+    ndcg_corr =  pearsonr(uncertainty_scores, ndcg_scores)
     mrr_corr = pearsonr(uncertainty_scores, mrr_scores)
 
     logger.info(f"nDCG Correlation: {ndcg_corr}")
@@ -73,5 +73,5 @@ if __name__ == '__main__':
     data_cfg = DatasetConfig(args.prepare_data.dataset_id)
     api = wandb.Api()
     config = api.run(f"{args.wandb.entity}/{args.wandb.project}/{args.wandb.run_id}").config
-    args = SimpleNamespace(**config)
-    main(args, args.wandb.run_id, data_cfg)
+    params = SimpleNamespace(**config)
+    main(params, args.wandb.run_id, data_cfg)
