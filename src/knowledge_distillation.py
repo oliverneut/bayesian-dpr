@@ -169,9 +169,9 @@ class KnowledgeDistillationTrainer(DPRTrainer):
                 scheduler.step()
                 progress_bar.set_postfix({"Loss": loss.item()})
                 self.run.log({"kd_loss": kd_loss.item(), "task_loss": task_loss.item(), "loss": loss.item()})
+                break
             
-            ndcg, mrr = 0, 0
-            # ndcg, mrr = self.compute_validation_metrics(k)
+            ndcg, mrr = self.compute_validation_metrics(k)
             logger.info(f"Epoch {epoch}/{self.args.num_epochs} ")
             logger.info(f"Validation metrics: nDCG@{k}={ndcg:.4f} | MRR@{k}={mrr:.4f}")
             self.run.log({f"nDCG@{k}": ndcg, f"MRR@{k}": mrr})
@@ -219,7 +219,7 @@ def main(args, run, data_cfg: DatasetConfig):
     logger.info("Loading data...")
     train_dataloader = get_dataloader(data_cfg.get_query_file(split="train"), data_cfg.get_corpus_file(),  batch_size=args.batch_size, shuffle=True)
     val_queries = get_query_dataloader(data_cfg.get_query_file(split="val"),  batch_size=args.batch_size, shuffle=False)
-    val_corpus = get_corpus_dataloader(data_cfg.get_corpus_file(), batch_size=args.batch_size, shuffle=False)
+    val_corpus = get_corpus_dataloader(data_cfg.get_corpus_file(split="val"), batch_size=args.batch_size, shuffle=False)
     qrels = get_qrels(data_cfg.get_qrels_file(split="train"))
 
     if args.knowledge_distillation:

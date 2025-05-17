@@ -10,8 +10,10 @@ class DatasetConfig:
         self.prepared_dir = self.create_prepared_dir()
         self.test_name = "test" if dataset_id in {"nq"} else "dev"
     
-    def get_corpus_file(self) -> str:
-        return self.root_dir / "corpus.jsonl"
+    def get_corpus_file(self, split: Optional[str] = None) -> str:
+        if split is None:
+            return self.root_dir / "corpus.jsonl"
+        return self.root_dir / "prepared" / f"corpus-{split}.jsonl"
     
     def get_queries_file(self) -> str:
         return self.root_dir / "queries.jsonl"
