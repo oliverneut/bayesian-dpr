@@ -1,10 +1,8 @@
 from omegaconf import OmegaConf
 import logging
-import os
 import torch
-from utils.model_utils import vbll_model_factory, model_factory, get_model_save_path
+from utils.model_utils import vbll_model_factory, model_factory
 from data_loaders import get_qrels, get_corpus_dataloader, get_query_dataloader
-from utils.data_utils import get_query_file
 from encoding import encode_corpus
 from evaluation import Evaluator
 from indexing import FaissIndex
@@ -23,7 +21,7 @@ def main(params: SimpleNamespace, data_cfg: DatasetConfig, run_id: str):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
-    save_dir = f"{args.output_dir}/{run_id}"
+    save_dir = f"output/models/{run_id}"
     model_path = f"{save_dir}/model.pt"
     
     if params.knowledge_distillation:
@@ -33,7 +31,7 @@ def main(params: SimpleNamespace, data_cfg: DatasetConfig, run_id: str):
         tokenizer, model = model_factory(params.model_name, device)
         method = "dpr"
 
-    model.load_state_dict(torch.load(model_path))
+    model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
 
     test_queries = get_query_dataloader(data_cfg.get_query_file(split=data_cfg.test_name), batch_size=params.batch_size, shuffle=False)
@@ -59,4 +57,4 @@ if __name__ == '__main__':
     api = wandb.Api()
     config = api.run(f"{args.wandb.entity}/{args.wandb.project}/{args.wandb.run_id}").config
     params = SimpleNamespace(**config)
-    main(params, data_cfg)
+    main(params, data_cfg, args.wandb.run_id)
