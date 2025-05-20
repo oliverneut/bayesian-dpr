@@ -14,9 +14,14 @@ logger = logging.getLogger(__name__)
 
 
 def log_metric(name: str, metrics: torch.Tensor):
-    mean = torch.mean(metrics).item()
-    std = torch.std(metrics).item()
-    print(f"{name}: N({mean}, {std})")
+    if metrics.shape[0] == 1:
+        print(f"{name}: N({metrics.item()}, 0.0)")
+        return
+        
+    mean = torch.mean(metrics)
+    std = torch.std(metrics)
+
+    print(f"{name}: N({mean.item()}, {std.item()})")
     
 
 def metrics(cov: torch.Tensor):
@@ -25,7 +30,8 @@ def metrics(cov: torch.Tensor):
     """
     log_metric("Norm", torch.norm(cov, p=2, dim=1))
     log_metric("Mean", torch.mean(cov, dim=1))
-    log_metric("Std", torch.std(cov, dim=0))
+    if cov.shape[0] > 1:
+        log_metric("Std", torch.std(cov, dim=0))
     log_metric("Max", torch.max(cov, dim=1).values)
     log_metric("Min", torch.min(cov, dim=1).values)
 
@@ -51,6 +57,9 @@ def main(params: SimpleNamespace, data_cfg: DatasetConfig, run_id: str):
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
 
+    print('Noise metrics')
+    metrics(model.vbll_layer.noise().scale.unsqueeze(dim=0))
+
     test_queries = get_query_dataloader(data_cfg.get_query_file(split=data_cfg.test_name), batch_size=params.batch_size, shuffle=False)
 
     for _, query in test_queries:
@@ -59,6 +68,7 @@ def main(params: SimpleNamespace, data_cfg: DatasetConfig, run_id: str):
         qry_emb = model(qry_enc).predictive
         qry_emb_cov = qry_emb.scale
 
+        print('Covariance metrics')
         metrics(qry_emb_cov)
         break
 
