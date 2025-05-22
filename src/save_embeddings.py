@@ -2,7 +2,7 @@ import torch
 import logging
 from utils.model_utils import vbll_model_factory, model_factory
 from data_loaders import get_corpus_dataloader, get_query_dataloader
-from utils.data_utils import get_query_file
+from utils.data_utils import DatasetConfig
 import wandb
 from omegaconf import OmegaConf
 from types import SimpleNamespace
@@ -50,7 +50,7 @@ def encode_queries(queries, tokenizer, encoder, device, method, max_qry_len=32):
     return qry_embs, qry_ids
 
 
-def main(args, run_id: str):
+def main(args, data_cfg: DatasetConfig, run_id: str):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
@@ -64,13 +64,13 @@ def main(args, run_id: str):
         tokenizer, model = model_factory(args.model_name, device)
         method = "dpr"
     
-    model.load_state_dict(torch.load(model_path))
+    model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
 
-    corpus = get_corpus_dataloader("data/msmarco/corpus.jsonl",  batch_size=args.batch_size, shuffle=False)
+    corpus = get_corpus_dataloader(data_cfg.get_corpus_file(), batch_size=args.batch_size, shuffle=False)
     psg_embs, psg_ids = encode_corpus(corpus, tokenizer, model, device, method=method)
 
-    qry_data_loader = get_query_dataloader(get_query_file(split="dev"),  batch_size=args.batch_size, shuffle=False)
+    qry_data_loader = get_query_dataloader(data_cfg.get_query_file(split=data_cfg.test_name), batch_size=args.batch_size, shuffle=False)
     qry_embs, qry_ids = encode_queries(qry_data_loader, tokenizer, model, device, method=method)
 
     torch.save(psg_embs, f"{model_dir}/psg_embs.pt")
@@ -85,9 +85,9 @@ def main(args, run_id: str):
     logger.info("Embeddings saved and verified successfully.")
 
 if __name__ == '__main__':
-    wandb_args = OmegaConf.load('src/utils/config.yml').wandb
-    run_id = "10nfecme"
+    args = OmegaConf.load('src/utils/config.yml')
+    data_cfg = DatasetConfig(args.prepare_data.dataset_id)
     api = wandb.Api()
-    config = api.run(f"{wandb_args.entity}/{wandb_args.project}/{run_id}").config
-    args = SimpleNamespace(**config)
-    main(args, run_id)
+    config = api.run(f"{args.wandb.entity}/{args.wandb.project}/{args.wandb.run_id}").config
+    params = SimpleNamespace(**config)
+    main(params, data_cfg, args.wandb.run_id)
