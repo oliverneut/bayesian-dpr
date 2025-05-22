@@ -169,7 +169,6 @@ class KnowledgeDistillationTrainer(DPRTrainer):
                 scheduler.step()
                 progress_bar.set_postfix({"Loss": loss.item()})
                 self.run.log({"kd_loss": kd_loss.item(), "task_loss": task_loss.item(), "loss": loss.item()})
-                break
             
             ndcg, mrr = self.compute_validation_metrics(k)
             logger.info(f"Epoch {epoch}/{self.args.num_epochs} ")
