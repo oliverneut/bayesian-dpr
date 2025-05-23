@@ -61,8 +61,9 @@ def main(args: SimpleNamespace, run_id: str, data_cfg: DatasetConfig):
             mean, cov = qry_embs[:,0,:], qry_embs[:,1,:]
 
             cov = cov - noise.scale
-            uncertainty_scores += uncertainty_score(cov).tolist()
-            for qry_id, uncertainty in zip(qry_ids, uncertainty_scores):
+            u_scores = uncertainty_score(cov).tolist()
+            uncertainty_scores += u_scores
+            for qry_id, uncertainty in zip(qry_ids, u_scores):
                 qpp_scores[qry_id]['uncertainty'] = uncertainty
 
             scores, indices = index.search(mean, k=10)
