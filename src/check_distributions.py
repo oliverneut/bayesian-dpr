@@ -12,30 +12,14 @@ from types import SimpleNamespace
 
 logger = logging.getLogger(__name__)
 
-
-def log_metric(name: str, metrics: torch.Tensor):
-    if metrics.shape[0] == 1:
-        print(f"{name}: N({metrics.item()}, 0.0)")
-        return
-        
-    mean = torch.mean(metrics)
-    std = torch.std(metrics)
-
-    print(f"{name}: N({mean.item()}, {std.item()})")
-    
-
 def metrics(cov: torch.Tensor):
     """
     Compute metrics for the covariance matrix.
     """
-    log_metric("Norm", torch.norm(cov, p=2, dim=1))
-    log_metric("Mean", torch.mean(cov, dim=1))
-    if cov.shape[0] > 1:
-        log_metric("Std", torch.std(cov, dim=0))
-    log_metric("Max", torch.max(cov, dim=1).values)
-    log_metric("Min", torch.min(cov, dim=1).values)
-
-
+    print("Norm", torch.norm(cov, p=2).item())
+    print("Mean", torch.mean(cov).item())
+    print("Max", torch.max(cov).item())
+    print("Min", torch.min(cov).item())
 
 def main(params: SimpleNamespace, data_cfg: DatasetConfig, run_id: str):
     # Set up logging
@@ -50,31 +34,22 @@ def main(params: SimpleNamespace, data_cfg: DatasetConfig, run_id: str):
     model_path = f"{save_dir}/model.pt"
     
     if params.knowledge_distillation:
-        tokenizer, model = vbll_model_factory(params.model_name, 1, params.parameterization, params.prior_scale, params.wishart_scale, device)
+        _, model = vbll_model_factory(params.model_name, 1, params.parameterization, params.prior_scale, params.wishart_scale, device)
     else:
         raise ValueError("Only vbll model is supported for evaluation")
 
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
+    
+    print('Weight metrics')
+    metrics(model.vbll_layer.W().scale)
 
     print('Noise metrics')
-    metrics(model.vbll_layer.noise().scale.unsqueeze(dim=0))
-
-    test_queries = get_query_dataloader(data_cfg.get_query_file(split=data_cfg.test_name), batch_size=params.batch_size, shuffle=False)
-
-    for _, query in test_queries:
-        qry_enc = tokenizer(query, padding="max_length", truncation=True, max_length=params.max_qry_len, return_tensors="pt").to(device)
-
-        qry_emb = model(qry_enc).predictive
-        qry_emb_cov = qry_emb.scale
-
-        print('Covariance metrics')
-        metrics(qry_emb_cov)
-        break
+    metrics(model.vbll_layer.noise().scale)
 
 
 if __name__ == '__main__':
-    args = OmegaConf.load('src/utils/config.yml')
+    args = OmegaConf.load('config.yml')
     data_cfg = DatasetConfig(args.prepare_data.dataset_id)
     api = wandb.Api()
     config = api.run(f"{args.wandb.entity}/{args.wandb.project}/{args.wandb.run_id}").config
