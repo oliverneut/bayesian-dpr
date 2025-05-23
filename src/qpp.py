@@ -92,6 +92,6 @@ def main(args: SimpleNamespace, run_id: str, data_cfg: DatasetConfig):
     logger.info(f"MRR Correlation: {mrr_corr}")
 
 if __name__ == '__main__':
-    args = OmegaConf.load('src/utils/config.yml')
+    args = OmegaConf.load('config.yml')
     data_cfg = DatasetConfig(args.prepare_data.dataset_id)
     main(args.train, args.wandb.run_id, data_cfg)

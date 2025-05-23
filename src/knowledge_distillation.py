@@ -237,7 +237,7 @@ def main(args, run, data_cfg: DatasetConfig):
 
 
 if __name__ == '__main__':
-    args = OmegaConf.load('src/utils/config.yml')
+    args = OmegaConf.load('config.yml')
     run = wandb.init(entity=args.wandb.entity, project=args.wandb.project, config=OmegaConf.to_container(args.train))
     data_cfg = DatasetConfig(args.prepare_data.dataset_id)
     main(args.train, run, data_cfg)

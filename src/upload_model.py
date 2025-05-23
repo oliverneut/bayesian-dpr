@@ -19,6 +19,6 @@ def main(args):
     model.push_to_hub(args.repo_name)
 
 if __name__ == "__main__":
-    args = OmegaConf.load('src/utils/config.yml').upload
+    args = OmegaConf.load('config.yml').upload
     main(args)
 

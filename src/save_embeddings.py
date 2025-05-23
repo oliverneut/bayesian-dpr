@@ -85,7 +85,7 @@ def main(args, data_cfg: DatasetConfig, run_id: str):
     logger.info("Embeddings saved and verified successfully.")
 
 if __name__ == '__main__':
-    args = OmegaConf.load('src/utils/config.yml')
+    args = OmegaConf.load('config.yml')
     data_cfg = DatasetConfig(args.prepare_data.dataset_id)
     api = wandb.Api()
     config = api.run(f"{args.wandb.entity}/{args.wandb.project}/{args.wandb.run_id}").config

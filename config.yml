@@ -19,7 +19,7 @@ train:
 wandb:
   entity: oliver-neut-university-of-amsterdam
   project: bayesian-dpr
-  run_id: 79mqroci
+  run_id: 10nfecme
 
 prepare_data:
   val_size: 100
