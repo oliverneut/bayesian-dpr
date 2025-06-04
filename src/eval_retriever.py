@@ -23,9 +23,10 @@ def main(params: SimpleNamespace, data_cfg: DatasetConfig, run_id: str):
 
     save_dir = f"output/models/{run_id}"
     model_path = f"{save_dir}/model.pt"
-    
+
+    parameterization = "diagonal"
     if params.knowledge_distillation:
-        tokenizer, model = vbll_model_factory(params.model_name, 1, params.parameterization, params.prior_scale, params.wishart_scale, device)
+        tokenizer, model = vbll_model_factory(params.model_name, 1, parameterization, params.prior_scale, params.wishart_scale, device)
         method = "vbll"
     else:
         tokenizer, model = model_factory(params.model_name, device)
