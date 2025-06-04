@@ -2,6 +2,7 @@ import torch
 from scipy.stats import pearsonr
 import torch
 import wandb
+import numpy as np
 from omegaconf import OmegaConf
 from types import SimpleNamespace
 from indexing import FaissIndex
@@ -41,7 +42,7 @@ def main(args: SimpleNamespace, run_id: str, data_cfg: DatasetConfig):
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
 
-    noise = model.vbll_layer.noise()
+    noise_scale = model.vbll_layer.noise().scale.to(torch.device("cpu"))
 
     qry_dataset = EmbeddingDataset(qry_embs_path, qry_ids_path)
     qry_dataloader = DataLoader(qry_dataset, batch_size=16, shuffle=False)
@@ -60,7 +61,7 @@ def main(args: SimpleNamespace, run_id: str, data_cfg: DatasetConfig):
         for qry_embs, qry_ids in tqdm(qry_dataloader, desc="Computing QPP scores"):
             mean, cov = qry_embs[:,0,:], qry_embs[:,1,:]
 
-            cov = cov - noise.scale
+            # cov = cov - noise_scale
             u_scores = uncertainty_score(cov).tolist()
             uncertainty_scores += u_scores
             for qry_id, uncertainty in zip(qry_ids, u_scores):
@@ -91,6 +92,8 @@ def main(args: SimpleNamespace, run_id: str, data_cfg: DatasetConfig):
 
     logger.info(f"nDCG Correlation: {ndcg_corr}")
     logger.info(f"MRR Correlation: {mrr_corr}")
+    logger.info(f"nDCG: {np.mean(ndcg_scores)}")
+    logger.info(f"MRR: {np.mean(mrr_scores)}")
 
 if __name__ == '__main__':
     args = OmegaConf.load('config.yml')

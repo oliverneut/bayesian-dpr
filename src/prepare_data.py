@@ -143,7 +143,7 @@ def prepare_test_queries(queries: Dict, data_cfg: DatasetConfig) -> None:
     DataWriter.save_queries(test_queries, data_cfg.prepared_dir, data_cfg.test_name)
 
 if __name__ == '__main__':
-    args = OmegaConf.load('src/utils/config.yml').prepare_data
+    args = OmegaConf.load('config.yml').prepare_data
 
     data_cfg = DatasetConfig(args.dataset_id)
     
