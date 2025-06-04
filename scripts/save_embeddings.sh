@@ -5,7 +5,7 @@
 #SBATCH --job-name=SaveEmbeddings
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=18
-#SBATCH --time=04:30:00
+#SBATCH --time=05:00:00
 #SBATCH --output=slurm/save_embeddings/%A.out
 
 module purge
@@ -16,4 +16,5 @@ source activate bret
 
 cd $HOME/bayesian-dpr
 
-python src/save_embeddings.py
+python src/check_distributions.py
+# python src/save_embeddings.py
