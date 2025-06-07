@@ -48,19 +48,19 @@ def qpp(data, model, tokenizer, index, psg_ids, device, unc_method="norm"):
     qpp_scores = defaultdict(dict)
 
     with torch.no_grad():
-        for qid, qry in tqdm(data.queries, desc="Computing QPP scores"):
+        for qry_id, qry in tqdm(data.queries, desc="Computing QPP scores"):
             emb = infer_embedding(model, tokenizer, qry, device)
-
+            
             uncertainty = uncertainty_score(emb.scale, unc_method).item()
 
-            qpp_scores[qid]['uncertainty'] = uncertainty
+            qpp_scores[qry_id]['uncertainty'] = uncertainty
 
             scores, indices = index.search(emb.loc, k=10)
 
             psg_indices = [psg_ids[idx] for idx in indices[0]]
         
             for score, psg_id in zip(scores[0], psg_indices):
-                run[qid][psg_id] = float(score)
+                run[qry_id][psg_id] = float(score)
         
         evaluator = RelevanceEvaluator(data.qrels_dict(), {"ndcg", "recip_rank"})
         results = evaluator.evaluate(run)
@@ -75,7 +75,7 @@ def qpp(data, model, tokenizer, index, psg_ids, device, unc_method="norm"):
     ndcg_scores = [qpp_scores[qry_id]['ndcg'] for qry_id in qpp_scores]
     mrr_scores = [qpp_scores[qry_id]['mrr'] for qry_id in qpp_scores]
 
-    ndcg_corr =  pearsonr(uncertainty_scores, ndcg_scores)
+    ndcg_corr = pearsonr(uncertainty_scores, ndcg_scores)
     mrr_corr = pearsonr(uncertainty_scores, mrr_scores)
 
     logger.info(f"nDCG Correlation: {ndcg_corr}")
