@@ -16,9 +16,6 @@ import ir_datasets
 
 logger = logging.getLogger(__name__)
 
-def uncertainty_score(cov):
-    return torch.linalg.vector_norm(cov, ord=2, dim=1)
-
 
 def uncertainty_score(scale, unc_method="norm"):
     cov = torch.diag(scale.squeeze())
@@ -103,11 +100,11 @@ def main(args: SimpleNamespace, run_id: str, unc_method="norm"):
     trec_dl_20 = ir_datasets.load("msmarco-passage/trec-dl-2020/judged")
 
     index = FaissIndex.build(psg_embs[:,0,:])
-    print(f'TREC DL 2019: {len(trec_dl_19)} queries')
+    print(f'TREC DL 2019: {len(trec_dl_19.queries)} queries')
     qpp(trec_dl_19, model, tokenizer, index, psg_ids, device, unc_method=unc_method)
     print('')
 
-    print(f'TREC DL 2019: {len(trec_dl_20)} queries')
+    print(f'TREC DL 2020: {len(trec_dl_20.queries)} queries')
     qpp(trec_dl_20, model, tokenizer, index, psg_ids, device, unc_method=unc_method)
 
 
