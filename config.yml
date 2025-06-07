@@ -23,5 +23,5 @@ wandb:
 
 prepare_data:
   val_size: 100
-  dataset_id: msmarco
+  dataset_id: hotpotqa
   ce_score_margin: 3

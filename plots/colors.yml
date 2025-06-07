@@ -1,0 +1,12 @@
+red:
+  dark: "#c51b8a"
+  mid: "#fa9fb5"
+  light: "#fde0dd"
+blue:
+  dark: "#3055B5"
+  mid: "#A3B5ED"
+  light: "#EAEFF7"
+grey:
+  dark: "#606060"
+  mid: "#B0B0B0"
+  light: "#E0E0E0"
