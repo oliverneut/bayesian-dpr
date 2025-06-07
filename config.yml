@@ -5,7 +5,7 @@ train:
   teacher_model_name: bert-base-msmarco
   max_qry_len: 32
   max_psg_len: 256
-  alpha: 0.01
+  alpha: 1.0
   k: 10
   prior_scale: 1.0
   wishart_scale: 0.1
@@ -25,17 +25,3 @@ prepare_data:
   val_size: 100
   dataset_id: msmarco
   ce_score_margin: 3
-
-eval:
-  output_dir: output/evaluations
-  batch_size: 32
-
-upload:
-  output_dir: output/distilled_models
-  ckpt_filename: bert-base
-  alpha: 0.001
-  prior_scale: 1.0
-  wishart_scale: 0.1
-  model_name: bert-base
-  parameterization: diagonal
-  repo_name: bayesian-dpr-bert-base
