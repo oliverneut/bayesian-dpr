@@ -1,5 +1,5 @@
 import torch
-from scipy.stats import pearsonr
+from scipy.stats import pearsonr, kendalltau
 import torch
 import wandb
 import numpy as np
@@ -75,11 +75,10 @@ def qpp(data, model, tokenizer, index, psg_ids, device, unc_method="norm"):
     ndcg_scores = [qpp_scores[qry_id]['ndcg'] for qry_id in qpp_scores]
     mrr_scores = [qpp_scores[qry_id]['mrr'] for qry_id in qpp_scores]
 
-    ndcg_corr = pearsonr(uncertainty_scores, ndcg_scores)
-    mrr_corr = pearsonr(uncertainty_scores, mrr_scores)
-
-    logger.info(f"nDCG Correlation: {ndcg_corr}")
-    logger.info(f"MRR Correlation: {mrr_corr}")
+    logger.info(f"nDCG Pearson Correlation: {pearsonr(uncertainty_scores, ndcg_scores)}")
+    logger.info(f"MRR Pearson Correlation: {pearsonr(uncertainty_scores, mrr_scores)}")
+    logger.info(f"nDCG Kendall Tau: {kendalltau(uncertainty_scores, ndcg_scores)}")
+    logger.info(f"MRR Kendall Tau: {kendalltau(uncertainty_scores, mrr_scores)}")
     logger.info(f"nDCG: {np.mean(ndcg_scores)}")
     logger.info(f"MRR: {np.mean(mrr_scores)}")
 
@@ -113,7 +112,6 @@ def main(args: SimpleNamespace, run_id: str, unc_method="norm"):
 
 if __name__ == '__main__':
     args = OmegaConf.load('config.yml')
-    data_cfg = DatasetConfig(args.prepare_data.dataset_id)
     api = wandb.Api()
     config = api.run(f"{args.wandb.entity}/{args.wandb.project}/{args.wandb.run_id}").config
     params = SimpleNamespace(**config)
