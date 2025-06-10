@@ -52,7 +52,7 @@ class Retriever(nn.Module):
         self.device = device
         self.to(device)
 
-    def forward(self, qry_or_psg):
+    def forward(self, qry_or_psg, noise=True):
         return self._encode(qry_or_psg)
 
     def _encode(self, qry_or_psg):
@@ -89,13 +89,22 @@ class VBLLRetriever(Retriever, PyTorchModelHubMixin):
         input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
         return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
     
-    def forward(self, qry_or_psg):
-        return self._encode(qry_or_psg)
+    def forward(self, qry_or_psg, noise=True):
+        if noise:
+            return self._encode(qry_or_psg)
+        else:
+            return self._encode_without_noise(qry_or_psg)
     
     def _encode(self, qry_or_psg):
         model_output = self.backbone(**qry_or_psg, return_dict=True)
         embeddings = self.cls_pooling(model_output, qry_or_psg["attention_mask"])
         output = self.vbll_layer(embeddings)
+        return output
+    
+    def _encode_without_noise(self, qry_or_psg):
+        model_output = self.backbone(**qry_or_psg, return_dict=True)
+        embeddings = self.cls_pooling(model_output, qry_or_psg["attention_mask"])
+        output = (self.vbll_layer.W() @ embeddings[..., None]).squeeze(-1)
         return output
     
     @classmethod

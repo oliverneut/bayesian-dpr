@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from pytrec_eval import RelevanceEvaluator
 from tqdm import tqdm
-from vbll.layers.regression import VBLLReturn
+from vbll.utils.distributions import Normal
 
 logger = logging.getLogger(__name__)
 
@@ -52,10 +52,9 @@ class Evaluator:
                     queries, padding="max_length", truncation=True, max_length=max_qry_len, return_tensors="pt"
                 ).to(self.device)
                 
-                qry_emb = self.model(qry_enc)
+                qry_emb = self.model(qry_enc, noise=False)
 
-                if isinstance(qry_emb, VBLLReturn):
-                    qry_emb = qry_emb.predictive
+                if isinstance(qry_emb, Normal):
                     if self.eval_mode == "kl":
                         mean, cov = qry_emb.loc, qry_emb.scale
                         ones = torch.ones(mean.size(0), 1).to(self.device)
