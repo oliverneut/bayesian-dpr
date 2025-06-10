@@ -56,7 +56,7 @@ class Evaluator:
 
                 if isinstance(qry_emb, Normal):
                     if self.eval_mode == "kl":
-                        mean, cov = qry_emb.loc, qry_emb.scale
+                        mean, cov = qry_emb.mean, qry_emb.covariance
                         ones = torch.ones(mean.size(0), 1).to(self.device)
                         qry_emb = -1 * torch.cat([ones, cov, torch.square(mean), mean], dim=1)
                     else:

@@ -5,12 +5,13 @@
 #SBATCH --job-name=QPP
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=18
-#SBATCH --time=00:20:00
+#SBATCH --time=00:30:00
 #SBATCH --output=slurm/qpp/%A.out
 
 module purge
 module load 2024
 module load Anaconda3/2024.06-1
+module load Java/21.0.2
 
 source activate bret
 
