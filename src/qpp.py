@@ -4,16 +4,13 @@ import torch
 import wandb
 import numpy as np
 from omegaconf import OmegaConf
-from types import SimpleNamespace
 from indexing import FaissIndex
 from utils.model_utils import vbll_model_factory
 from pytrec_eval import RelevanceEvaluator
 from collections import defaultdict
 import logging
 import ir_datasets
-from dataclasses import dataclass
 from pyserini.index.lucene import LuceneIndexReader
-from pyserini.search.lucene import LuceneSearcher
 import numpy as np
 import ir_datasets
 from tqdm import tqdm
@@ -355,7 +352,7 @@ class PredictorCalculator:
             qtoken2var[qtoken], qtoken2std[qtoken] = VAR(qtoken, self.index_reader)
             qtoken2did[qtoken] = t2did(qtoken, self.index_reader)
 
-        self.save_token_stats()
+        self.save_token_stats(qtoken2var, qtoken2std, qtoken2did)
 
         return qtoken2var, qtoken2std, qtoken2did
 
@@ -379,10 +376,14 @@ def calculate_correlations(scores, qpp_scores):
         predictor_scores = [qpp_scores[qry_id][predictor] for qry_id in qpp_scores]
         
         logger.info(f"Predictor: {predictor}")
-        logger.info(f"nDCG Pearson Correlation: {pearsonr(predictor_scores, ndcg_scores)}")
-        logger.info(f"MRR Pearson Correlation: {pearsonr(predictor_scores, mrr_scores)}")
-        logger.info(f"nDCG Kendall Tau: {kendalltau(predictor_scores, ndcg_scores)}")
-        logger.info(f"MRR Kendall Tau: {kendalltau(predictor_scores, mrr_scores)}")
+        corr, p_val = pearsonr(predictor_scores, ndcg_scores)
+        logger.info(f"nDCG Pearson Correlation: {corr} p_value: {p_val}")
+        corr, p_val = pearsonr(predictor_scores, mrr_scores)
+        logger.info(f"MRR Pearson Correlation: {corr} p_value: {p_val}")
+        corr, p_val = kendalltau(predictor_scores, ndcg_scores)
+        logger.info(f"nDCG Kendall Tau: {corr} p_value: {p_val}")
+        corr, p_val = kendalltau(predictor_scores, mrr_scores)
+        logger.info(f"MRR Kendall Tau: {corr} p_value: {p_val}")
         logger.info('------------------------------------------------------')
 
 
