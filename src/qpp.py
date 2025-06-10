@@ -9,7 +9,6 @@ from indexing import FaissIndex
 from utils.model_utils import vbll_model_factory
 from pytrec_eval import RelevanceEvaluator
 from utils.data_utils import DatasetConfig
-from tqdm import tqdm
 from collections import defaultdict
 import logging
 import ir_datasets
@@ -48,7 +47,7 @@ def qpp(data, model, tokenizer, index, psg_ids, device, unc_method="norm"):
     qpp_scores = defaultdict(dict)
 
     with torch.no_grad():
-        for qry_id, qry in tqdm(data.queries, desc="Computing QPP scores"):
+        for qry_id, qry in data.queries:
             emb = infer_embedding(model, tokenizer, qry, device)
             
             uncertainty = uncertainty_score(emb.scale, unc_method).item()
@@ -83,7 +82,7 @@ def qpp(data, model, tokenizer, index, psg_ids, device, unc_method="norm"):
     logger.info(f"MRR: {np.mean(mrr_scores)}")
 
 
-def main(args: SimpleNamespace, run_id: str, unc_method="norm"):
+def main(args: SimpleNamespace, run_id: str):
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
     logger.info(f"Run ID: {run_id}")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -102,17 +101,21 @@ def main(args: SimpleNamespace, run_id: str, unc_method="norm"):
     trec_dl_20 = ir_datasets.load("msmarco-passage/trec-dl-2020/judged")
 
     index = FaissIndex.build(psg_embs[:,0,:])
-    print(f'TREC DL 2019: {len(trec_dl_19.queries)} queries')
-    qpp(trec_dl_19, model, tokenizer, index, psg_ids, device, unc_method=unc_method)
-    print('')
 
-    print(f'TREC DL 2020: {len(trec_dl_20.queries)} queries')
-    qpp(trec_dl_20, model, tokenizer, index, psg_ids, device, unc_method=unc_method)
+    unc_methods = ["norm", "trace", "det", "entropy"]
+    for unc_method in unc_methods:
+        logger.info(f"----------------[{unc_method}]------------------------")
+        logger.info(f'TREC DL 2019: {len(trec_dl_19.queries)} queries')
+        qpp(trec_dl_19, model, tokenizer, index, psg_ids, device, unc_method=unc_method)
+        logger.info('')
 
+        logger.info(f'TREC DL 2020: {len(trec_dl_20.queries)} queries')
+        qpp(trec_dl_20, model, tokenizer, index, psg_ids, device, unc_method=unc_method)
+        logger.info('')
 
 if __name__ == '__main__':
     args = OmegaConf.load('config.yml')
     api = wandb.Api()
     config = api.run(f"{args.wandb.entity}/{args.wandb.project}/{args.wandb.run_id}").config
     params = SimpleNamespace(**config)
-    main(params, args.wandb.run_id, "norm")
+    main(params, args.wandb.run_id)

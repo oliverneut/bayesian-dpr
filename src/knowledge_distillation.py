@@ -157,11 +157,11 @@ class KnowledgeDistillationTrainer(DPRTrainer):
                     qry_loss = qry_emb.train_loss_fn(teacher_qry_emb)
                     pos_loss = pos_emb.train_loss_fn(teacher_pos_emb)
                     neg_loss = neg_emb.train_loss_fn(teacher_neg_emb)
-                    kd_loss = qry_loss + pos_loss + neg_loss
+                    kd_loss = torch.log(qry_loss + pos_loss + neg_loss)
                 else:
                     kd_loss = torch.tensor(0.0)
 
-                loss = alpha * torch.log(kd_loss) + task_loss
+                loss = alpha * kd_loss + task_loss
 
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
@@ -239,5 +239,5 @@ def main(args, run, data_cfg: DatasetConfig):
 if __name__ == '__main__':
     args = OmegaConf.load('config.yml')
     run = wandb.init(entity=args.wandb.entity, project=args.wandb.project, config=OmegaConf.to_container(args.train))
-    data_cfg = DatasetConfig(args.prepare_data.dataset_id)
+    data_cfg = DatasetConfig(args.train.dataset_id)
     main(args.train, run, data_cfg)
