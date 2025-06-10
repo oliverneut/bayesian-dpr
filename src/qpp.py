@@ -8,7 +8,6 @@ from types import SimpleNamespace
 from indexing import FaissIndex
 from utils.model_utils import vbll_model_factory
 from pytrec_eval import RelevanceEvaluator
-from utils.data_utils import DatasetConfig
 from collections import defaultdict
 import logging
 import ir_datasets

@@ -2,7 +2,7 @@ from omegaconf import OmegaConf
 import logging
 import torch
 from utils.model_utils import vbll_model_factory, model_factory
-from data_loaders import get_qrels, get_corpus_dataloader, get_query_dataloader
+from data_loaders import get_qrels, get_corpus_dataloader, get_query_dataloader, EmbeddingDataset
 from encoding import encode_corpus
 from evaluation import Evaluator
 from indexing import FaissIndex
@@ -12,11 +12,11 @@ from types import SimpleNamespace
 
 logger = logging.getLogger(__name__)
 
-def main(params: SimpleNamespace, data_cfg: DatasetConfig, run_id: str):
-    # Set up logging
+def main(params: SimpleNamespace, data_cfg: DatasetConfig, run_id: str, eval_mode: str = "kl"):
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
     logger.info(f"Run ID: {run_id}")
     logger.info(f"Dataset id: {data_cfg.dataset_id}")
+    logger.info(f"Evaluation mode: {eval_mode}")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
@@ -27,10 +27,8 @@ def main(params: SimpleNamespace, data_cfg: DatasetConfig, run_id: str):
     parameterization = "diagonal"
     if params.knowledge_distillation:
         tokenizer, model = vbll_model_factory(params.model_name, 1, parameterization, params.prior_scale, params.wishart_scale, device)
-        method = "vbll"
     else:
         tokenizer, model = model_factory(params.model_name, device)
-        method = "dpr"
 
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
@@ -39,9 +37,11 @@ def main(params: SimpleNamespace, data_cfg: DatasetConfig, run_id: str):
     corpus = get_corpus_dataloader(data_cfg.get_corpus_file(), batch_size=params.batch_size, shuffle=False)
     qrels = get_qrels(data_cfg.get_qrels_file(split=data_cfg.test_name))
 
-    psg_embs, psg_ids = encode_corpus(corpus, tokenizer, model, device, method=method)
+    psg_embs, psg_ids = encode_corpus(corpus, tokenizer, model, eval_mode=eval_mode, device=device)
+
     index = FaissIndex.build(psg_embs)
-    evaluator = Evaluator(tokenizer, model, method, device, index=index,
+    
+    evaluator = Evaluator(tokenizer, model, eval_mode, device, index=index,
         metrics={"ndcg", "recip_rank"}, psg_ids=psg_ids)
     
     metrics = evaluator.evaluate_retriever(test_queries, qrels, k=params.k)
@@ -54,8 +54,8 @@ def main(params: SimpleNamespace, data_cfg: DatasetConfig, run_id: str):
 
 if __name__ == '__main__':
     args = OmegaConf.load('config.yml')
-    data_cfg = DatasetConfig(args.prepare_data.dataset_id)
+    data_cfg = DatasetConfig(args.eval.dataset_id)
     api = wandb.Api()
     config = api.run(f"{args.wandb.entity}/{args.wandb.project}/{args.wandb.run_id}").config
     params = SimpleNamespace(**config)
-    main(params, data_cfg, args.wandb.run_id)
+    main(params, data_cfg, args.wandb.run_id, eval_mode=args.eval.mode)

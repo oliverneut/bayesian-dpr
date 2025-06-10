@@ -6,20 +6,19 @@ import time
 import numpy as np
 import torch
 from pytrec_eval import RelevanceEvaluator
-from encoding import encode_query_mean
 from tqdm import tqdm
-
+from vbll.layers.regression import VBLLReturn
 
 logger = logging.getLogger(__name__)
 
 
 class Evaluator:
-    def __init__(self, tokenizer, model, method, device, index=None, metrics=None, psg_ids=None):
+    def __init__(self, tokenizer, model, eval_mode, device, index=None, metrics=None, psg_ids=None):
         if metrics is None:
             metrics = {"ndcg", "recip_rank"}
         self.tokenizer = tokenizer
         self.model = model
-        self.method = method
+        self.eval_mode = eval_mode
         self.device = device
         self.index = index
         self.metrics = metrics
@@ -53,8 +52,16 @@ class Evaluator:
                     queries, padding="max_length", truncation=True, max_length=max_qry_len, return_tensors="pt"
                 ).to(self.device)
                 
-                if self.method == "vbll":
-                    qry_emb = self.model(qry_enc).predictive.loc
+                qry_emb = self.model(qry_enc)
+
+                if isinstance(qry_emb, VBLLReturn):
+                    qry_emb = qry_emb.predictive
+                    if self.eval_mode == "kl":
+                        mean, cov = qry_emb.loc, qry_emb.scale
+                        ones = torch.ones(mean.size(0), 1)
+                        qry_emb = torch.cat([ones, cov, torch.square(mean), mean], dim=1)
+                    else:
+                        qry_emb = qry_emb.loc
                 else:
                     qry_emb = self.model(qry_enc)
                 
