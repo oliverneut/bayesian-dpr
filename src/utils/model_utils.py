@@ -24,7 +24,7 @@ def model_factory(model_name, device):
 
     return tokenizer, model
 
-def vbll_model_factory(model_name, reg_weight, parameterization, prior_scale, wishart_scale, device):
+def vbll_model_factory(model_name, device, reg_weight=1, parameterization="diagonal", prior_scale=1, wishart_scale=1):
     retriever_class = VBLLRetriever
     hf_model_id = get_hf_model_id(model_name)
     tokenizer, model = retriever_class.build(hf_model_id, reg_weight, parameterization, prior_scale, wishart_scale, device=device)

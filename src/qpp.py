@@ -11,7 +11,6 @@ from pytrec_eval import RelevanceEvaluator
 from collections import defaultdict
 import logging
 import ir_datasets
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +61,6 @@ def qpp(data, model, tokenizer, index, psg_ids, device, unc_method="norm"):
         
         evaluator = RelevanceEvaluator(data.qrels_dict(), {"ndcg", "recip_rank"})
         results = evaluator.evaluate(run)
-        with open('results.json', 'w', encoding='utf8') as f:
-            json.dump(results, f, ensure_ascii=False, indent=2)
 
         for qry_id, metrics in results.items():
             qpp_scores[qry_id]['ndcg'] = metrics['ndcg']

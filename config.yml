@@ -5,7 +5,7 @@ train:
   teacher_model_name: bert-base-msmarco
   max_qry_len: 32
   max_psg_len: 256
-  alpha: 1.0
+  alpha: 0.0
   k: 10
   prior_scale: 1.0
   wishart_scale: 0.1

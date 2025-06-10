@@ -58,7 +58,7 @@ class Evaluator:
                     qry_emb = qry_emb.predictive
                     if self.eval_mode == "kl":
                         mean, cov = qry_emb.loc, qry_emb.scale
-                        ones = torch.ones(mean.size(0), 1)
+                        ones = torch.ones(mean.size(0), 1).to(self.device)
                         qry_emb = torch.cat([ones, cov, torch.square(mean), mean], dim=1)
                     else:
                         qry_emb = qry_emb.loc
