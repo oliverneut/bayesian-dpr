@@ -98,7 +98,7 @@ class VBLLRetriever(Retriever, PyTorchModelHubMixin):
     def _encode(self, qry_or_psg):
         model_output = self.backbone(**qry_or_psg, return_dict=True)
         embeddings = self.cls_pooling(model_output, qry_or_psg["attention_mask"])
-        output = self.vbll_layer(embeddings)
+        output = self.vbll_layer(embeddings).predictive
         return output
     
     def _encode_without_noise(self, qry_or_psg):

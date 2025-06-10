@@ -52,7 +52,7 @@ class Evaluator:
                     queries, padding="max_length", truncation=True, max_length=max_qry_len, return_tensors="pt"
                 ).to(self.device)
                 
-                qry_emb = self.model(qry_enc, noise=False)
+                qry_emb = self.model(qry_enc)
 
                 if isinstance(qry_emb, Normal):
                     if self.eval_mode == "kl":

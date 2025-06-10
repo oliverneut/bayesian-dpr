@@ -10,7 +10,7 @@ def encode_corpus(corpus, tokenizer, encoder, device, eval_mode="dpr", max_psg_l
         for psg_id, psg in tqdm(corpus, desc="Encoding corpus"):
             psg_enc = tokenizer(psg, padding="max_length", truncation=True, max_length=max_psg_len, return_tensors="pt").to(device)
 
-            psg_emb = encoder(psg_enc, noise=False)
+            psg_emb = encoder(psg_enc)
 
             if isinstance(psg_emb, Normal):
                 if eval_mode == "kl":
