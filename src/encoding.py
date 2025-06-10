@@ -14,7 +14,7 @@ def encode_corpus(corpus, tokenizer, encoder, device, eval_mode="dpr", max_psg_l
 
             if isinstance(psg_emb, Normal):
                 if eval_mode == "kl":
-                    mean, cov = psg_emb.mean, psg_emb.covariance
+                    mean, cov = psg_emb.mean, psg_emb.variance
                     doc_prior = torch.sum(torch.log(cov) + (torch.square(mean) / cov), dim=1).unsqueeze(1)
                     inv_cov = 1 / cov
                     psg_emb = torch.cat([doc_prior, inv_cov, inv_cov, (-2 * mean) * inv_cov], dim=1)
