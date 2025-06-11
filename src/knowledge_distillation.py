@@ -101,7 +101,7 @@ class DPRTrainer:
 
     def compute_validation_metrics(self, k=20):
         self.model.eval()
-        psg_embs, psg_ids = encode_corpus(self.val_corpus, self.tokenizer, self.model, self.device, method=self.method)
+        psg_embs, psg_ids = encode_corpus(self.val_corpus, self.tokenizer, self.model, self.device, eval_mode="dpr", max_psg_len=self.args.max_psg_len)
         index = FaissIndex.build(psg_embs)
         evaluator = Evaluator(
             self.tokenizer,
@@ -202,7 +202,7 @@ class KnowledgeDistillationTrainer(DPRTrainer):
         prior_scale = self.args.prior_scale
         wishart_scale = self.args.wishart_scale
         parameterization = self.args.parameterization
-        self.tokenizer, self.model = vbll_model_factory(model_name, reg_weight, parameterization, prior_scale, wishart_scale, self.device)
+        self.tokenizer, self.model = vbll_model_factory(model_name, self.device, reg_weight, parameterization, prior_scale, wishart_scale)
 
     def set_teacher_model(self):
         _, self.teacher_model = model_factory(self.args.teacher_model_name, self.device)

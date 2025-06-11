@@ -235,7 +235,7 @@ class PredictorCalculator:
         with torch.no_grad():
             for qry_id, qry in self.data.queries:
                 qry_enc = self.tokenizer(qry, padding="max_length", truncation=True, max_length=32, return_tensors="pt").to(self.device)
-                qry_emb = self.model(qry_enc)
+                qry_emb = self.model(qry_enc).predictive
 
                 for unc_method in UNC_METHODS:
                     self.qpp_scores[qry_id][unc_method] = uncertainty_score(qry_emb, unc_method).item()

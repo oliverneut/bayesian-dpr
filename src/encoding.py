@@ -1,6 +1,6 @@
 import torch
 from tqdm import tqdm
-from vbll.utils.distributions import Normal
+from vbll.layers.regression import VBLLReturn
 
 def encode_corpus(corpus, tokenizer, encoder, device, eval_mode="dpr", max_psg_len=256):
     psg_embs = []
@@ -12,7 +12,8 @@ def encode_corpus(corpus, tokenizer, encoder, device, eval_mode="dpr", max_psg_l
 
             psg_emb = encoder(psg_enc)
 
-            if isinstance(psg_emb, Normal):
+            if isinstance(psg_emb, VBLLReturn):
+                psg_emb = psg_emb.predictive
                 if eval_mode == "kl":
                     mean, cov = psg_emb.mean, psg_emb.variance
                     doc_prior = torch.sum(torch.log(cov) + (torch.square(mean) / cov), dim=1).unsqueeze(1)
@@ -20,8 +21,6 @@ def encode_corpus(corpus, tokenizer, encoder, device, eval_mode="dpr", max_psg_l
                     psg_emb = torch.cat([doc_prior, inv_cov, inv_cov, (-2 * mean) * inv_cov], dim=1)
                 else:
                     psg_emb = psg_emb.loc
-            else:
-                psg_emb = encoder(psg_enc)
 
             psg_embs.append(psg_emb.detach().cpu())
             psg_ids += list(psg_id)
