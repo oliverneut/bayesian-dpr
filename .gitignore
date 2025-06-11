@@ -11,3 +11,4 @@ output/distilled_models/
 src/wandb/
 wandb/
 output/
+plots/figures
