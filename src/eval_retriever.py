@@ -8,8 +8,11 @@ from evaluation import Evaluator
 from indexing import FaissIndex
 from utils.data_utils import DatasetConfig
 import wandb
+import os
+
 
 logger = logging.getLogger(__name__)
+
 
 def main(model_name: str, vbll: bool, data_cfg: DatasetConfig, run_id: str, eval_mode: str = "kl"):
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
@@ -32,10 +35,16 @@ def main(model_name: str, vbll: bool, data_cfg: DatasetConfig, run_id: str, eval
     model.eval()
 
     test_queries = get_query_dataloader(data_cfg.get_query_file(split=data_cfg.test_name), batch_size=16, shuffle=False)
-    corpus = get_corpus_dataloader(data_cfg.get_corpus_file(), batch_size=16, shuffle=False)
     qrels = get_qrels(data_cfg.get_qrels_file(split=data_cfg.test_name))
 
-    psg_embs, psg_ids = encode_corpus(corpus, tokenizer, model, eval_mode=eval_mode, device=device)
+    if os.path.exists(f"{save_dir}/psg_embs.pt") and os.path.exists(f"{save_dir}/psg_ids.pt"):
+        logger.info("Loading precomputed embeddings and IDs from disk.")
+        psg_embs = torch.load(f"{save_dir}/psg_embs.pt", map_location=device)
+        psg_embs = psg_embs[:, 0]
+        psg_ids = torch.load(f"{save_dir}/psg_ids.pt")
+    else:
+        corpus = get_corpus_dataloader(data_cfg.get_corpus_file(), batch_size=16, shuffle=False)
+        psg_embs, psg_ids = encode_corpus(corpus, tokenizer, model, eval_mode=eval_mode, device=device)
 
     index = FaissIndex.build(psg_embs)
     

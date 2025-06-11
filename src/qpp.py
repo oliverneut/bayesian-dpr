@@ -251,7 +251,12 @@ class PredictorCalculator:
             for qry_id, metrics in results.items():
                 self.scores[qry_id]['ndcg'] = metrics['ndcg']
                 self.scores[qry_id]['mrr'] = metrics['recip_rank']
-        
+
+            ndcg_scores = [self.scores[qry_id]['ndcg'] for qry_id in self.scores]
+            mrr_scores = [self.scores[qry_id]['mrr'] for qry_id in self.scores]
+            logger.info(f"nDCG: {np.mean(ndcg_scores)}")
+            logger.info(f"MRR: {np.mean(mrr_scores)}")
+
 
     def calculate_baseline_scores(self):
         qtoken2var, qtoken2std, qtoken2did = self.get_token_stats()
@@ -361,7 +366,9 @@ def calculate_qpp_scores(data, dataset_name, model_name: str, run_id: str, devic
     predictor_calc = PredictorCalculator(data, dataset_name)
 
     predictor_calc.calculate_uncertainty_scores(model_name, run_id)
-    predictor_calc.calculate_baseline_scores()
+    
+    if False:
+        predictor_calc.calculate_baseline_scores()
 
     return predictor_calc.scores, predictor_calc.qpp_scores
 

@@ -29,7 +29,6 @@ def encode_corpus(corpus, tokenizer, encoder, device, max_psg_len=256):
             
             psg_embs.append(psg_emb.detach().cpu())
             psg_ids += list(psg_id)
-            break
             
         psg_embs = torch.cat(psg_embs, dim=0)
     return psg_embs, psg_ids
