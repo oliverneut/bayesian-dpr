@@ -314,30 +314,30 @@ class PredictorCalculator:
     
 
     def token_stats_exists(self):
-        qtoken2var = os.path.exists(f"results/qpp/{self.dataset_name}/qtoken2var.json")
-        qtoken2std = os.path.exists(f"results/qpp/{self.dataset_name}/qtoken2std.json")
-        qtoken2did = os.path.exists(f"results/qpp/{self.dataset_name}/qtoken2did.json")
+        qtoken2var = os.path.exists(f"output/qpp/{self.dataset_name}/qtoken2var.json")
+        qtoken2std = os.path.exists(f"output/qpp/{self.dataset_name}/qtoken2std.json")
+        qtoken2did = os.path.exists(f"output/qpp/{self.dataset_name}/qtoken2did.json")
         return qtoken2var and qtoken2std and qtoken2did
     
 
     def load_token_stats(self):
-        qtoken2var = load_json(f"results/qpp/{self.dataset_name}", "qtoken2var.json")
-        qtoken2std = load_json(f"results/qpp/{self.dataset_name}", "qtoken2std.json")
-        qtoken2did = load_json(f"results/qpp/{self.dataset_name}", "qtoken2did.json")
+        qtoken2var = load_json(f"output/qpp/{self.dataset_name}", "qtoken2var.json")
+        qtoken2std = load_json(f"output/qpp/{self.dataset_name}", "qtoken2std.json")
+        qtoken2did = load_json(f"output/qpp/{self.dataset_name}", "qtoken2did.json")
         return qtoken2var, qtoken2std, qtoken2did
     
 
     def save_token_stats(self, qtoken2var, qtoken2std, qtoken2did):
-        if not os.path.exists(f"results/qpp/{self.dataset_name}"):
-            os.makedirs(f"results/qpp/{self.dataset_name}")
+        if not os.path.exists(f"output/qpp/{self.dataset_name}"):
+            os.makedirs(f"output/qpp/{self.dataset_name}")
 
-        with open(f"results/qpp/{self.dataset_name}/qtoken2var.json", 'w', encoding='utf-8') as f:
+        with open(f"output/qpp/{self.dataset_name}/qtoken2var.json", 'w', encoding='utf-8') as f:
             json.dump(qtoken2var, f, ensure_ascii=False, indent=4)
 
-        with open(f"results/qpp/{self.dataset_name}/qtoken2std.json", 'w', encoding='utf-8') as f:
+        with open(f"output/qpp/{self.dataset_name}/qtoken2std.json", 'w', encoding='utf-8') as f:
             json.dump(qtoken2std, f, ensure_ascii=False, indent=4)
 
-        with open(f"results/qpp/{self.dataset_name}/qtoken2did.json", 'w', encoding='utf-8') as f:
+        with open(f"output/qpp/{self.dataset_name}/qtoken2did.json", 'w', encoding='utf-8') as f:
             json.dump(qtoken2did, f, ensure_ascii=False, indent=4)
 
 
