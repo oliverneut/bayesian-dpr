@@ -1,53 +1,38 @@
 import torch
 import logging
 from utils.model_utils import vbll_model_factory, model_factory
-from data_loaders import get_corpus_dataloader, get_query_dataloader
+from data_loaders import get_corpus_dataloader
 from utils.data_utils import DatasetConfig
 import wandb
 from omegaconf import OmegaConf
 from types import SimpleNamespace
+from vbll.layers.regression import VBLLReturn
 from tqdm import tqdm
+
 
 logger = logging.getLogger(__name__)
 
-def encode_corpus(corpus, tokenizer, encoder, device, method, max_psg_len=256):
+
+def encode_corpus(corpus, tokenizer, encoder, device, max_psg_len=256):
     psg_embs = []
     psg_ids = []
 
     with torch.no_grad():
         for psg_id, psg in tqdm(corpus, desc="Encoding corpus"):
             psg_enc = tokenizer(psg, padding="max_length", truncation=True, max_length=max_psg_len, return_tensors="pt").to(device)
-            if method == "vbll":
-                psg_emb = encoder(psg_enc).predictive
+            
+            psg_emb = encoder(psg_enc)
+            
+            if isinstance(psg_emb, VBLLReturn):
+                psg_emb = psg_emb.predictive
                 psg_emb = torch.stack([psg_emb.loc, psg_emb.scale], dim=1)
-            else:
-                psg_emb = encoder(psg_enc)
             
             psg_embs.append(psg_emb.detach().cpu())
             psg_ids += list(psg_id)
+            break
             
         psg_embs = torch.cat(psg_embs, dim=0)
     return psg_embs, psg_ids
-
-
-def encode_queries(queries, tokenizer, encoder, device, method, max_qry_len=32):
-    qry_embs = []
-    qry_ids = []
-
-    with torch.no_grad():
-        for qry_id, qry in tqdm(queries, desc="Encoding queries"):
-            qry_enc = tokenizer(qry, padding="max_length", truncation=True, max_length=max_qry_len, return_tensors="pt").to(device)
-            if method == "vbll":
-                qry_emb = encoder(qry_enc).predictive
-                qry_emb = torch.stack([qry_emb.loc, qry_emb.scale], dim=1)
-            else:
-                qry_emb = encoder(qry_enc)
-            
-            qry_embs.append(qry_emb.detach().cpu())
-            qry_ids += list(qry_id)
-
-    qry_embs = torch.cat(qry_embs, dim=0)
-    return qry_embs, qry_ids
 
 
 def main(args, data_cfg: DatasetConfig, run_id: str):
@@ -58,31 +43,25 @@ def main(args, data_cfg: DatasetConfig, run_id: str):
     model_path = f"{model_dir}/model.pt"
 
     if args.knowledge_distillation:
-        tokenizer, model = vbll_model_factory(args.model_name, 1, args.parameterization, args.prior_scale, args.wishart_scale, device)
-        method = "vbll"
+        tokenizer, model = vbll_model_factory(args.model_name, device)
     else:
         tokenizer, model = model_factory(args.model_name, device)
-        method = "dpr"
     
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
 
     corpus = get_corpus_dataloader(data_cfg.get_corpus_file(), batch_size=args.batch_size, shuffle=False)
-    psg_embs, psg_ids = encode_corpus(corpus, tokenizer, model, device, method=method)
-
-    qry_data_loader = get_query_dataloader(data_cfg.get_query_file(split=data_cfg.test_name), batch_size=args.batch_size, shuffle=False)
-    qry_embs, qry_ids = encode_queries(qry_data_loader, tokenizer, model, device, method=method)
+    psg_embs, psg_ids = encode_corpus(corpus, tokenizer, model, device)
 
     torch.save(psg_embs, f"{model_dir}/psg_embs.pt")
     torch.save(psg_ids, f"{model_dir}/psg_ids.pt")
-    torch.save(qry_embs, f"{model_dir}/qry_embs.pt")
-    torch.save(qry_ids, f"{model_dir}/qry_ids.pt")
 
     read_embs = torch.load(f"{model_dir}/psg_embs.pt")
     
     # Check if the embeddings are the same
     assert torch.all(torch.eq(psg_embs, read_embs)), "Embeddings do not match!"
     logger.info("Embeddings saved and verified successfully.")
+
 
 if __name__ == '__main__':
     args = OmegaConf.load('config.yml')
