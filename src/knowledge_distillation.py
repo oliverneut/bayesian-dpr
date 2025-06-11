@@ -132,6 +132,7 @@ class KnowledgeDistillationTrainer(DPRTrainer):
         )
         max_mrr = -1.0
         patience = 3
+        kd_loss_converged = False
 
         for epoch in range(1, num_epochs + 1):
             self.model.train()
@@ -147,7 +148,10 @@ class KnowledgeDistillationTrainer(DPRTrainer):
                 pos_emb = self.model(pos_enc)
                 neg_emb = self.model(neg_enc)
 
-                task_loss = self.loss_func(qry_emb.predictive.loc, pos_emb.predictive.loc, neg_emb.predictive.loc)
+                if kd_loss_converged:
+                    task_loss = self.loss_func(qry_emb.predictive.loc, pos_emb.predictive.loc, neg_emb.predictive.loc)
+                else:
+                    task_loss = torch.tensor(0.0)
                 
                 if alpha > 0:
                     with torch.no_grad():
@@ -184,8 +188,13 @@ class KnowledgeDistillationTrainer(DPRTrainer):
                 patience -= 1
 
             if patience <= 0:
-                logger.info(f"Early stopping at epoch {epoch}")
-                break
+                if kd_loss_converged:
+                    logger.info(f"Task loss converged too. Early stopping at epoch {epoch}")
+                    break
+                else:
+                    logger.info(f"KD loss converged too. Early stopping at epoch {epoch}")
+                    kd_loss_converged = True
+                    patience = 3
 
     def set_model(self):
         model_name = self.args.model_name
