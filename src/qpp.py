@@ -182,7 +182,7 @@ def uncertainty_score(qry_emb, unc_method="norm"):
     cov = qry_emb.covariance.squeeze()
 
     if unc_method == "norm":
-        return torch.linalg.norm(cov)
+        return torch.sqrt(qry_emb.trace_covariance)
     elif unc_method == "trace":
         return qry_emb.trace_covariance
     elif unc_method == "det":
