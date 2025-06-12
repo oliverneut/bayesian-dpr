@@ -132,7 +132,6 @@ class KnowledgeDistillationTrainer(DPRTrainer):
         )
         max_mrr = -1.0
         patience = 3
-        kd_loss_converged = False
 
         for epoch in range(1, num_epochs + 1):
             self.model.train()
@@ -148,10 +147,7 @@ class KnowledgeDistillationTrainer(DPRTrainer):
                 pos_emb = self.model(pos_enc)
                 neg_emb = self.model(neg_enc)
 
-                if kd_loss_converged:
-                    task_loss = self.loss_func(qry_emb.predictive.loc, pos_emb.predictive.loc, neg_emb.predictive.loc)
-                else:
-                    task_loss = torch.tensor(0.0)
+                task_loss = self.loss_func(qry_emb.predictive.loc, pos_emb.predictive.loc, neg_emb.predictive.loc)
                 
                 if alpha > 0:
                     with torch.no_grad():
@@ -161,11 +157,11 @@ class KnowledgeDistillationTrainer(DPRTrainer):
                     qry_loss = qry_emb.train_loss_fn(teacher_qry_emb)
                     pos_loss = pos_emb.train_loss_fn(teacher_pos_emb)
                     neg_loss = neg_emb.train_loss_fn(teacher_neg_emb)
-                    kd_loss = torch.log(qry_loss + pos_loss + neg_loss)
+                    kd_loss = qry_loss + pos_loss + neg_loss
                 else:
-                    kd_loss = torch.tensor(0.0)
+                    kd_loss = torch.tensor(1.0)
 
-                loss = alpha * kd_loss + task_loss
+                loss = alpha * torch.log(kd_loss) + task_loss
 
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
@@ -188,13 +184,8 @@ class KnowledgeDistillationTrainer(DPRTrainer):
                 patience -= 1
 
             if patience <= 0:
-                if kd_loss_converged:
-                    logger.info(f"Task loss converged too. Early stopping at epoch {epoch}")
-                    break
-                else:
-                    logger.info(f"KD loss converged too. Early stopping at epoch {epoch}")
-                    kd_loss_converged = True
-                    patience = 3
+                logger.info(f"Early stopping at epoch {epoch}")
+                break
 
     def set_model(self):
         model_name = self.args.model_name

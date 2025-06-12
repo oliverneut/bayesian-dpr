@@ -35,6 +35,8 @@ def encode_corpus(corpus, tokenizer, encoder, device, max_psg_len=256):
 
 
 def main(args, data_cfg: DatasetConfig, run_id: str):
+    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
+    logger.info(f"Run ID: {run_id}")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
@@ -64,7 +66,7 @@ def main(args, data_cfg: DatasetConfig, run_id: str):
 
 if __name__ == '__main__':
     args = OmegaConf.load('config.yml')
-    data_cfg = DatasetConfig(args.prepare_data.dataset_id)
+    data_cfg = DatasetConfig(args.eval.dataset_id)
     api = wandb.Api()
     config = api.run(f"{args.wandb.entity}/{args.wandb.project}/{args.wandb.run_id}").config
     params = SimpleNamespace(**config)
