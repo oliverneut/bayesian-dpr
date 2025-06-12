@@ -16,5 +16,5 @@ source activate bret
 
 cd $HOME/bayesian-dpr
 
-python src/check_distributions.py
-# python src/save_embeddings.py
+# python src/check_distributions.py
+python src/save_embeddings.py
