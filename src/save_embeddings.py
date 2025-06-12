@@ -25,7 +25,7 @@ def encode_corpus(corpus, tokenizer, encoder, device, max_psg_len=256):
             
             if isinstance(psg_emb, VBLLReturn):
                 psg_emb = psg_emb.predictive
-                psg_emb = torch.stack([psg_emb.loc, psg_emb.scale], dim=1)
+                psg_emb = torch.stack([psg_emb.loc, psg_emb.variance], dim=1)
             
             psg_embs.append(psg_emb.detach().cpu())
             psg_ids += list(psg_id)
