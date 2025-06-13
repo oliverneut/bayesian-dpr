@@ -7,6 +7,7 @@ from pytrec_eval import RelevanceEvaluator
 from collections import defaultdict
 import wandb
 import numpy as np
+from vbll.layers.regression import VBLLReturn
 import os
 import ir_datasets
 from tqdm import tqdm
@@ -21,9 +22,12 @@ def evaluate_trec(model, tokenizer, index, psg_ids, data, device):
     with torch.no_grad():
         for qry_id, qry in tqdm(data.queries, desc="Evaluating TREC-DL queries"):
             qry_enc = tokenizer(qry, padding="max_length", truncation=True, max_length=32, return_tensors="pt").to(device)
-            qry_emb = model(qry_enc).predictive
 
-            scores, indices = index.search(qry_emb.loc, k=10)
+            qry_emb = model(qry_enc)
+            if isinstance(qry_emb, VBLLReturn):
+                qry_emb = qry_emb.predictive.loc
+
+            scores, indices = index.search(qry_emb, k=10)
             psg_indices = [psg_ids[idx] for idx in indices[0]]
             for score, psg_id in zip(scores[0], psg_indices):
                 run[qry_id][psg_id] = float(score)
