@@ -6,6 +6,14 @@ blue:
   dark: "#3055B5"
   mid: "#A3B5ED"
   light: "#EAEFF7"
+green:
+  dark: "#226F54"
+  mid: "#6FBF9B"
+  light: "#DFF2E8"
+purple:
+  dark: "#20063B"
+  mid: "#A77CC2"
+  light: "#EADDF0"
 grey:
   dark: "#606060"
   mid: "#B0B0B0"

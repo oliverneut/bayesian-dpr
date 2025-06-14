@@ -56,7 +56,8 @@ class DPRTrainer:
             self.model, self.train_dl, lr, min_lr, num_epochs, warmup_rate
         )
 
-        max_ndcg = -1.0
+        max_mrr = -1.0
+        patience = 3
 
         for epoch in range(1, num_epochs + 1):
             self.model.train()
@@ -85,10 +86,17 @@ class DPRTrainer:
             logger.info(f"Epoch {epoch}/{args.num_epochs} ")
             logger.info(f"Validation metrics: nDCG@{k}={ndcg:.4f} | MRR@{k}={mrr:.4f}")
 
-            if ndcg > max_ndcg:
+            if mrr > max_mrr:
                 torch.save(self.model.state_dict(), self.save_path)
                 logger.info(f"Model saved to {self.save_path}")
-                max_ndcg = ndcg
+                max_mrr = mrr
+                patience = 3
+            else:
+                patience -= 1
+
+            if patience <= 0:
+                logger.info(f"Early stopping at epoch {epoch}")
+                break
 
     def tokenize_query(self, text):
         return self.tokenizer(text, padding="max_length", truncation=True, max_length=self.args.max_qry_len, return_tensors="pt")

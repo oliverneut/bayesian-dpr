@@ -82,6 +82,7 @@ class VBLLRetriever(Retriever, PyTorchModelHubMixin):
         disable_grad(self.backbone.embeddings)
         dim = self.backbone.config.hidden_size
         self.vbll_layer = vbll.Regression(dim, dim, reg_weight, parameterization, prior_scale, wishart_scale)
+        self.vbll_layer.W_mean = nn.Parameter(torch.eye(dim) + 0.01 * torch.randn(dim, dim))
         self.vbll_layer.to(device)
 
     def cls_pooling(self, model_output, attention_mask):
