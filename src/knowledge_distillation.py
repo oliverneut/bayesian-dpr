@@ -85,6 +85,7 @@ class DPRTrainer:
             ndcg, mrr = self.compute_validation_metrics(k)
             logger.info(f"Epoch {epoch}/{args.num_epochs} ")
             logger.info(f"Validation metrics: nDCG@{k}={ndcg:.4f} | MRR@{k}={mrr:.4f}")
+            self.run.log({f"nDCG@{k}": ndcg, f"MRR@{k}": mrr})
 
             if mrr > max_mrr:
                 torch.save(self.model.state_dict(), self.save_path)

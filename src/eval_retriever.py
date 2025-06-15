@@ -53,9 +53,11 @@ def main(model_name: str, vbll: bool, data_cfg: DatasetConfig, run_id: str, eval
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
-
+    
     save_dir = f"output/models/{run_id}"
+    # save_dir = f"/scratch-shared/tmp.alIhTYBxk7/{run_id}"
     model_path = f"{save_dir}/model.pt"
+    embs_path = f"{save_dir}/{data_cfg.dataset_id}"
 
     if vbll:
         tokenizer, model = vbll_model_factory(model_name, device)
@@ -67,16 +69,17 @@ def main(model_name: str, vbll: bool, data_cfg: DatasetConfig, run_id: str, eval
 
     test_queries = get_query_dataloader(data_cfg.get_query_file(split=data_cfg.test_name), batch_size=16, shuffle=False)
     qrels = get_qrels(data_cfg.get_qrels_file(split=data_cfg.test_name))
-
-    if os.path.exists(f"{save_dir}/psg_embs.pt") and os.path.exists(f"{save_dir}/psg_ids.pt"):
+    
+    if os.path.exists(f"{embs_path}/psg_embs.pt") and os.path.exists(f"{embs_path}/psg_ids.pt"):
         logger.info("Loading precomputed embeddings and IDs from disk.")
         if eval_mode == "kl":
-            psg_embs_dataset = VBLLEmbeddingDataset(f"{save_dir}/psg_embs.pt", f"{save_dir}/psg_ids.pt")
+            logger.info("Processing precomputed corpus embeddings to KL index")
+            psg_embs_dataset = VBLLEmbeddingDataset(f"{embs_path}/psg_embs.pt", f"{embs_path}/psg_ids.pt")
             psg_embs_dataloader = DataLoader(psg_embs_dataset, batch_size=16, shuffle=False)
             psg_embs, psg_ids = process_embeddings_kl(psg_embs_dataloader)
         else:
-            psg_embs = torch.load(f"{save_dir}/psg_embs.pt", map_location=device)
-            psg_ids = torch.load(f"{save_dir}/psg_ids.pt")
+            psg_embs = torch.load(f"{embs_path}/psg_embs.pt", map_location=device)
+            psg_ids = torch.load(f"{embs_path}/psg_ids.pt")
             if psg_embs.dim() == 3:
                 logger.info("Reshaping embeddings from 3D to 2D.")
                 psg_embs = psg_embs[:,0]

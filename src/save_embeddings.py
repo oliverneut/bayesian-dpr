@@ -8,6 +8,7 @@ from omegaconf import OmegaConf
 from types import SimpleNamespace
 from vbll.layers.regression import VBLLReturn
 from tqdm import tqdm
+import os
 
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,8 @@ def main(args, data_cfg: DatasetConfig, run_id: str):
 
     model_dir = f"output/models/{run_id}"
     model_path = f"{model_dir}/model.pt"
+    embs_dir = f"{model_dir}/{data_cfg.dataset_id}"
+    os.makedirs(embs_dir, exist_ok=True)
 
     if args.knowledge_distillation:
         tokenizer, model = vbll_model_factory(args.model_name, device)
@@ -54,10 +57,10 @@ def main(args, data_cfg: DatasetConfig, run_id: str):
     corpus = get_corpus_dataloader(data_cfg.get_corpus_file(), batch_size=args.batch_size, shuffle=False)
     psg_embs, psg_ids = encode_corpus(corpus, tokenizer, model, device)
 
-    torch.save(psg_embs, f"{model_dir}/psg_embs.pt")
-    torch.save(psg_ids, f"{model_dir}/psg_ids.pt")
+    torch.save(psg_embs, f"{embs_dir}/psg_embs.pt")
+    torch.save(psg_ids, f"{embs_dir}/psg_ids.pt")
 
-    read_embs = torch.load(f"{model_dir}/psg_embs.pt")
+    read_embs = torch.load(f"{embs_dir}/psg_embs.pt")
     
     # Check if the embeddings are the same
     assert torch.all(torch.eq(psg_embs, read_embs)), "Embeddings do not match!"
