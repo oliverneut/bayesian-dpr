@@ -1,7 +1,7 @@
 from typing import Optional
 from pathlib import Path
 import os
-PROJECT_ROOT = Path(__file__).parent.parent.parent
+PROJECT_ROOT = Path().resolve()
 
 class DatasetConfig:
     def __init__(self, dataset_id: str):
