@@ -1,5 +1,6 @@
 from transformers import AutoModel, AutoTokenizer
 import vbll
+from vbll.layers.regression import VBLLReturn
 import torch
 import torch.nn as nn
 from utils.run_utils import RunConfig
@@ -127,7 +128,7 @@ class VBLLRetriever(Retriever, PyTorchModelHubMixin):
         model_output = self.backbone(**qry_or_psg, return_dict=True)
         embeddings = self.cls_pooling(model_output, qry_or_psg["attention_mask"])
         output = (self.vbll_layer.W() @ embeddings[..., None]).squeeze(-1)
-        return output
+        return VBLLReturn(output, None, None)
     
     @classmethod
     def build(cls, model_name, reg_weight, parameterization, prior_scale, wishart_scale, device="cpu", **hf_kwargs):
