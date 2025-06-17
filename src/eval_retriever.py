@@ -13,7 +13,7 @@ from utils.run_utils import RunConfig
 logger = logging.getLogger(__name__)
 
 
-def main(run_cfg: RunConfig, data_cfg: DatasetConfig, rel_mode: str = "dpr", embs_dir: str = "/output/models"):
+def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: str = "dpr"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
@@ -49,4 +49,4 @@ if __name__ == '__main__':
     logger.info(f"Dataset id: {args.eval.dataset_id}")
     logger.info(f"Relevance mode: {args.eval.rel_mode}")
 
-    main(run_cfg, data_cfg, rel_mode=args.eval.rel_mode, embs_dir=args.eval.embs_dir)
+    main(run_cfg, data_cfg, embs_dir=args.eval.embs_dir, rel_mode=args.eval.rel_mode)

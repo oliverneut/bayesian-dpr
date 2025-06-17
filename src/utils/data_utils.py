@@ -24,11 +24,18 @@ class DatasetConfig:
         return None
     
     def get_query_file(self, split: str) -> str:
+        if self.dataset_id in {"trec-dl-2019", "trec-dl-2020"}:
+            return f"msmarco-passage/{self.dataset_id}/judged"
+
         return self.root_dir / "prepared" / f"queries-{split}.jsonl"
     
     def get_qrels_file(self, split: str) -> str:
+        if self.dataset_id in {"trec-dl-2019", "trec-dl-2020"}:
+            return f"msmarco-passage/{self.dataset_id}/judged"
         return self.root_dir / "qrels" / f"{split}.tsv"
     
     def create_prepared_dir(self) -> None:
+        if self.dataset_id in {"trec-dl-2019", "trec-dl-2020"}:
+            return ''
         os.makedirs(self.root_dir / "prepared", exist_ok=True)
         return self.root_dir / "prepared"
