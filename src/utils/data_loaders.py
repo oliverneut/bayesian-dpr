@@ -3,7 +3,7 @@ import csv
 from collections import defaultdict
 from datasets import Dataset as HuggingFaceDataset
 from torch.utils.data import DataLoader, Dataset
-import ir_datasets
+from pathlib import PosixPath
 import random
 import torch
 
@@ -28,10 +28,7 @@ def get_corpus(corpus_file: str):
     return corpus
 
 
-def get_qrels(qrels_file: str):
-    if "trec" in qrels_file:
-        return ir_datasets.load(qrels_file).qrels_dict()
-    
+def get_qrels(qrels_file: PosixPath):
     qrels = defaultdict(dict)
     reader = csv.reader(open(qrels_file, encoding="utf-8"), delimiter="\t", quoting=csv.QUOTE_MINIMAL)
     next(reader)
@@ -45,8 +42,6 @@ def get_qrels(qrels_file: str):
 def _load_data(data_file):
     if data_file.suffix == ".jsonl":
         data = HuggingFaceDataset.from_json(str(data_file))
-    elif "trec" in data_file:
-        data = ir_datasets.load(data_file)
     else:
         raise NotImplementedError("Data file with format {} not supported.".format(data_file.split(".")[-1]))
     return data
@@ -85,7 +80,7 @@ class DPRDataset(Dataset):
 class QueryDataset(Dataset):
     def __init__(self, data_file):
         self.data = _load_data(data_file)
-        self._num_samples = len(self.data) 
+        self._num_samples = len(self.data)
     
     def __len__(self):
         return self._num_samples

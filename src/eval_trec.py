@@ -1,14 +1,16 @@
 from omegaconf import OmegaConf
+from utils.run_utils import RunConfig
+from utils.data_utils import DatasetConfig
+from utils.embedding_utils import has_embeddings, load_embeddings
 import logging
 import torch
-from utils.model_utils import vbll_model_factory, model_factory
+from utils.model_utils import get_model_from_run
 from utils.indexing import FaissIndex
 from pytrec_eval import RelevanceEvaluator
 from collections import defaultdict
-import wandb
+from utils.evaluation import Evaluator
 import numpy as np
 from vbll.layers.regression import VBLLReturn
-import os
 import ir_datasets
 from tqdm import tqdm
 
@@ -16,61 +18,44 @@ from tqdm import tqdm
 logger = logging.getLogger(__name__)
 
 
-def evaluate_trec(model, tokenizer, index, psg_ids, data, device):
-    run = defaultdict(dict)
-    trec_scores = defaultdict(dict)
-    with torch.no_grad():
-        for qry_id, qry in tqdm(data.queries, desc="Evaluating TREC-DL queries"):
-            qry_enc = tokenizer(qry, padding="max_length", truncation=True, max_length=32, return_tensors="pt").to(device)
+# def evaluate_trec(model, tokenizer, index, psg_ids, data, device):
+#     run = defaultdict(dict)
+#     trec_scores = defaultdict(dict)
 
-            qry_emb = model(qry_enc)
-            if isinstance(qry_emb, VBLLReturn):
-                qry_emb = qry_emb.predictive.loc
+#     with torch.no_grad():
+#         for qry_id, qry in tqdm(data.queries, desc="Evaluating TREC-DL queries"):
+#             qry_enc = tokenizer(qry, padding="max_length", truncation=True, max_length=32, return_tensors="pt").to(device)
 
-            scores, indices = index.search(qry_emb, k=10)
-            psg_indices = [psg_ids[idx] for idx in indices[0]]
-            for score, psg_id in zip(scores[0], psg_indices):
-                run[qry_id][psg_id] = float(score)
+#             qry_emb = model(qry_enc)
+#             if isinstance(qry_emb, VBLLReturn):
+#                 qry_emb = qry_emb.predictive.mean
+
+#             scores, indices = index.search(qry_emb, k=10)
+#             psg_indices = [psg_ids[idx] for idx in indices[0]]
+#             for score, psg_id in zip(scores[0], psg_indices):
+#                 run[qry_id][psg_id] = float(score)
         
-        evaluator = RelevanceEvaluator(data.qrels_dict(), {"ndcg", "recip_rank"})
-        results = evaluator.evaluate(run)
+#         evaluator = RelevanceEvaluator(data.qrels_dict(), {"ndcg", "recip_rank"})
+#         results = evaluator.evaluate(run)
 
-        for qry_id, metrics in results.items():
-            trec_scores[qry_id]['ndcg'] = metrics['ndcg']
-            trec_scores[qry_id]['mrr'] = metrics['recip_rank']
+#         for qry_id, metrics in results.items():
+#             trec_scores[qry_id]['ndcg'] = metrics['ndcg']
+#             trec_scores[qry_id]['mrr'] = metrics['recip_rank']
 
-        ndcg_scores = [trec_scores[qry_id]['ndcg'] for qry_id in trec_scores]
-        mrr_scores = [trec_scores[qry_id]['mrr'] for qry_id in trec_scores]
-        logger.info(f"nDCG: {np.mean(ndcg_scores)}")
-        logger.info(f"MRR: {np.mean(mrr_scores)}")
+#         ndcg_scores = [trec_scores[qry_id]['ndcg'] for qry_id in trec_scores]
+#         mrr_scores = [trec_scores[qry_id]['mrr'] for qry_id in trec_scores]
+#         logger.info(f"nDCG: {np.mean(ndcg_scores)}")
+#         logger.info(f"MRR: {np.mean(mrr_scores)}")
 
 
-def main(model_name: str, vbll: bool, run_id: str):
-    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
-    logger.info(f"Run ID: {run_id}")
-
+def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: str = "dpr"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
-    save_dir = f"output/models/{run_id}"
-    model_path = f"{save_dir}/model.pt"
+    tokenizer, model = get_model_from_run(run_cfg, device)
 
-    if vbll:
-        tokenizer, model = vbll_model_factory(model_name, device)
-    else:
-        tokenizer, model = model_factory(model_name, device)
-
-    model.load_state_dict(torch.load(model_path, map_location=device))
-    model.eval()
-
-    if os.path.exists(f"{save_dir}/psg_embs.pt") and os.path.exists(f"{save_dir}/psg_ids.pt"):
-        logger.info("Loading precomputed embeddings and IDs from disk.")
-        psg_embs = torch.load(f"{save_dir}/psg_embs.pt", map_location=device)
-        psg_ids = torch.load(f"{save_dir}/psg_ids.pt")
-
-        if psg_embs.dim() == 3:
-            logger.info("Reshaping embeddings from 3D to 2D.")
-            psg_embs = psg_embs[:,0]
+    if has_embeddings(run_cfg, data_cfg, embs_dir):
+        psg_embs, psg_ids = load_embeddings(run_cfg, data_cfg, embs_dir, rel_mode, device)
     else:
         logger.info("No precomputed embeddings found. Please run the encoding script first.")
         return
@@ -79,17 +64,35 @@ def main(model_name: str, vbll: bool, run_id: str):
 
     dataset_name = "trec-dl-2019"
     trec_dl_19 = ir_datasets.load(f"msmarco-passage/{dataset_name}/judged")
-    evaluate_trec(model, tokenizer, index, psg_ids, trec_dl_19, device)
+
+    evaluator = Evaluator(tokenizer, model, rel_mode, device, index=index,
+        metrics={"ndcg", "recip_rank"}, psg_ids=psg_ids)
+    
+    logger.info(f"Evaluating {dataset_name} dataset...")
+    evaluator.evaluate_retriever(trec_dl_19.queries, trec_dl_19.qrels_dict(), k=10)
 
     dataset_name = "trec-dl-2020"
     trec_dl_20 = ir_datasets.load(f"msmarco-passage/{dataset_name}/judged")
-    evaluate_trec(model, tokenizer, index, psg_ids, trec_dl_20, device)
+
+    logger.info(f"Evaluating {dataset_name} dataset...")
+    evaluator.evaluate_retriever(trec_dl_20.queries, trec_dl_20.qrels_dict(), k=10)
 
 
 if __name__ == '__main__':
+    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
     args = OmegaConf.load('config.yml')
-    api = wandb.Api()
-    config = api.run(f"{args.wandb.entity}/{args.wandb.project}/{args.wandb.run_id}").config
-    model_id = config['model_name']
-    vbll = config['knowledge_distillation']
-    main(model_id, vbll, args.wandb.run_id)
+
+    run_cfg = RunConfig(args)
+    data_cfg = DatasetConfig(args.eval.dataset_id)
+
+    logger.info(f"Run ID: {args.wandb.run_id}")
+    logger.info(f"Dataset id: {args.eval.dataset_id}")
+
+    main(run_cfg, data_cfg, embs_dir=args.eval.embs_dir)
+
+    # args = OmegaConf.load('config.yml')
+    # api = wandb.Api()
+    # config = api.run(f"{args.wandb.entity}/{args.wandb.project}/{args.wandb.run_id}").config
+    # model_id = config['model_name']
+    # vbll = config['knowledge_distillation']
+    # main(model_id, vbll, args.wandb.run_id)
