@@ -6,11 +6,11 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import LinearLR, SequentialLR
 from utils.data_utils import DatasetConfig
 from utils.model_utils import model_factory, vbll_model_factory
-from data_loaders import get_dataloader, get_qrels, get_corpus_dataloader, get_query_dataloader
-from losses import BinaryPassageRetrievalLoss
-from evaluation import Evaluator
-from indexing import FaissIndex
-from encoding import encode_corpus
+from utils.data_loaders import get_dataloader, get_qrels, get_corpus_dataloader, get_query_dataloader
+from utils.losses import BinaryPassageRetrievalLoss
+from utils.evaluation import Evaluator
+from utils.indexing import FaissIndex
+from utils.encoding import encode_corpus
 from tqdm import tqdm
 import wandb
 

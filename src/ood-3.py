@@ -10,12 +10,12 @@ import torch
 import logging
 import torch.nn.functional as F
 import wandb
-from indexing import FaissIndex
+from utils.indexing import FaissIndex
 from vbll.layers.regression import VBLLReturn
 from scipy.stats import pointbiserialr
 from sklearn.metrics import roc_auc_score, average_precision_score
 from utils.data_utils import DatasetConfig
-from data_loaders import get_queries, get_qrels
+from utils.data_loaders import get_queries, get_qrels
 from utils.model_utils import vbll_model_factory, model_factory
 
 

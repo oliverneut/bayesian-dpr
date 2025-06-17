@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 from omegaconf import OmegaConf
 import torch
 import logging
-from indexing import FaissIndex
+from utils.indexing import FaissIndex
 import wandb
-from evaluation import Evaluator
+from utils.evaluation import Evaluator
 from vbll.layers.regression import VBLLReturn
 from pathlib import Path
 import csv

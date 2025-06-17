@@ -7,7 +7,7 @@ from typing import Dict, Set, Tuple, Optional
 from pathlib import Path
 from dataclasses import dataclass
 from utils.data_utils import DatasetConfig
-from data_loaders import get_queries, get_corpus, get_qrels
+from utils.data_loaders import get_queries, get_corpus, get_qrels
 
 @dataclass
 class QueryData:

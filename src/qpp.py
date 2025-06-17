@@ -4,7 +4,7 @@ import torch
 import wandb
 import numpy as np
 from omegaconf import OmegaConf
-from indexing import FaissIndex
+from utils.indexing import FaissIndex
 from utils.model_utils import vbll_model_factory
 from pytrec_eval import RelevanceEvaluator
 from collections import defaultdict

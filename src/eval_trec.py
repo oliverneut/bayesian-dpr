@@ -2,7 +2,7 @@ from omegaconf import OmegaConf
 import logging
 import torch
 from utils.model_utils import vbll_model_factory, model_factory
-from indexing import FaissIndex
+from utils.indexing import FaissIndex
 from pytrec_eval import RelevanceEvaluator
 from collections import defaultdict
 import wandb

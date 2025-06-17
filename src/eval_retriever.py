@@ -2,10 +2,10 @@ from omegaconf import OmegaConf
 import logging
 import torch
 from utils.model_utils import vbll_model_factory, model_factory
-from data_loaders import get_qrels, get_corpus_dataloader, get_query_dataloader
-from encoding import encode_corpus
-from evaluation import Evaluator
-from indexing import FaissIndex
+from utils.data_loaders import get_qrels, get_corpus_dataloader, get_query_dataloader
+from utils.encoding import encode_corpus
+from utils.evaluation import Evaluator
+from utils.indexing import FaissIndex
 from utils.data_utils import DatasetConfig
 from torch.utils.data import DataLoader, Dataset
 import wandb
