@@ -118,9 +118,11 @@ class QueryDataset(Dataset):
 def create_eval_dataset(queries, data_cfg: DatasetConfig, ood_dataset: str):
     ood_cfg = DatasetConfig(ood_dataset)
     ood_queries = get_queries(ood_cfg.get_queries_file())
-    
-    eval_queries = prepare_test_queries([], queries, data_cfg, 1000, OOD=False)
-    eval_queries = prepare_test_queries(eval_queries, ood_queries, ood_cfg, 1000, OOD=True)
+    num_samples = 1000  # Default number of samples for OOD datasets
+    if ood_dataset == 'fiqa':
+        num_samples = 500
+    eval_queries = prepare_test_queries([], queries, data_cfg, num_samples, OOD=False)
+    eval_queries = prepare_test_queries(eval_queries, ood_queries, ood_cfg, num_samples, OOD=True)
 
     query_dataset = QueryDataset(eval_queries)
     return DataLoader(query_dataset, batch_size=16, shuffle=False)
@@ -142,7 +144,7 @@ def main(run_cfg: RunConfig, embs_dir: str, T: int = 5, rel_mode: str = "dpr"):
     index = FaissIndex.build(psg_embs)
     msmarco_queries = get_queries(msmarco_cfg.get_queries_file())
 
-    for ood_dataset in ['nq', 'hotpotqa', 'fiqa']:
+    for ood_dataset in ['fiqa', 'nq', 'hotpotqa', 'fiqa']:
         logger.info(f"Processing OOD dataset: {ood_dataset}")
         query_dl = create_eval_dataset(msmarco_queries, msmarco_cfg, ood_dataset)
         unc_method = "norm"
