@@ -1,7 +1,7 @@
 import torch
 import logging
 from utils.model_utils import vbll_model_factory, model_factory
-from data_loaders import get_corpus_dataloader
+from utils.data_loaders import get_corpus_dataloader
 from utils.data_utils import DatasetConfig
 import wandb
 from omegaconf import OmegaConf

@@ -28,4 +28,5 @@ prepare_data:
 
 eval:
   dataset_id: msmarco
-  mode: kl
+  mode: dpr #dpr or kl
+  embs_dir: /scratch-shared/tmp.alIhTYBxk7
