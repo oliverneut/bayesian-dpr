@@ -63,7 +63,7 @@ def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: s
     if has_embeddings(run_cfg, data_cfg, embs_dir):
         psg_embs, psg_ids = load_embeddings(run_cfg, data_cfg, embs_dir, rel_mode, device)
     else:
-        logger.info("No precomputed embeddings found. Please run the encoding script first.")
+        logger.info("No precomputed embeddings found. Please run the eval_retriever script first.")
         return
     
     index = FaissIndex.build(psg_embs)

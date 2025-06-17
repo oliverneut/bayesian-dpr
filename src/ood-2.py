@@ -2,19 +2,18 @@ from omegaconf import OmegaConf
 import torch
 import logging
 from utils.indexing import FaissIndex
+from utils.run_utils import RunConfig
+from utils.model_utils import get_model_from_run
+from utils.data_utils import DatasetConfig
+from utils.embedding_utils import has_embeddings, load_embeddings, get_embeddings
 import wandb
 from utils.evaluation import Evaluator
 from vbll.layers.regression import VBLLReturn
 from pathlib import Path
-from data_loaders import get_query_dataloader, get_qrels
+from utils.data_loaders import get_query_dataloader, get_qrels
 import csv
 import os
-
-from utils.model_utils import vbll_model_factory
-from utils.data_utils import DatasetConfig
 from prepare_data import DataWriter
-
-PROJECT_ROOT = Path().resolve()
 
 
 logger = logging.getLogger(__name__)
@@ -56,23 +55,15 @@ def setup_data(data_cfg: DatasetConfig):
     typos_path = data_cfg.root_dir / 'query.typo.tsv'
     qrels_dir = data_cfg.root_dir / 'qrels'
     
-    os.makedirs(data_cfg.root_dir / 'qrels', exist_ok=True)
+    os.makedirs(qrels_dir, exist_ok=True)
     os.makedirs(data_cfg.prepared_dir, exist_ok=True)
 
-    print(qrels_dir)
     if not Path(qrels_dir / 'dev.tsv').exists():
         generate_qrels(qrels_path, qrels_dir)
 
-    if not Path(data_cfg.prepared_dir / 'queries-clean-dev.jsonl').exists():
+    if not Path(data_cfg.prepared_dir / 'queries-clean.jsonl').exists():
         generate_queries(cleans_path, data_cfg.prepared_dir, split='clean')
         generate_queries(typos_path, data_cfg.prepared_dir, split='typo')
-
-
-def load_embeddings(run_id: str, embs_dir: str):
-    psg_embs = torch.load(f"{embs_dir}/{run_id}/psg_embs.pt")
-    psg_ids = torch.load(f"{embs_dir}/{run_id}/psg_ids.pt")
-
-    return psg_embs, psg_ids
 
 
 def evaluate_model(model, tokenizer, index, psg_ids, queries, qrels, device, eval_mode="dpr", k=10):
@@ -85,39 +76,45 @@ def evaluate_model(model, tokenizer, index, psg_ids, queries, qrels, device, eva
     logger.info(f"MRR@{10}: {metrics[f"MRR@{10}"]}")
 
 
-def main(model_id: str, run_id: str, embs_dir: str, eval_mode: str = "dpr"):
-    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
+def main(run_cfg: RunConfig, embs_dir: str, rel_mode: str = "dpr"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    logger.info(f"Run ID: {run_id}")
+    logger.info(f"Run ID: {run_cfg.run_id}")
+
     logger.info("Setting up data...")
     data_cfg = DatasetConfig('dl-typo')
     setup_data(data_cfg)
 
-    data_cfg = DatasetConfig('dl-typo')
+    tokenizer, model = get_model_from_run(run_cfg, device)
+
     logger.info(f"Loading data")
     clean_queries = get_query_dataloader(data_cfg.get_query_file(split='clean'))
-
     typo_queries = get_query_dataloader(data_cfg.get_query_file(split='typo'))
-
     qrels =  get_qrels(data_cfg.get_qrels_file(split='dev'))
 
-    psg_embs, psg_ids = load_embeddings(run_id, embs_dir)
-    tokenizer, model = vbll_model_factory(model_id, device)
-    index = FaissIndex.build(psg_embs[:,0])
+    if has_embeddings(run_cfg, data_cfg, embs_dir):
+        psg_embs, psg_ids = load_embeddings(run_cfg, data_cfg, embs_dir, rel_mode, device)
+    else:
+        logger.info("No precomputed embeddings found. Please run the eval_retriever script first.")
+        return
+
+    index = FaissIndex.build(psg_embs)
 
     logger.info("Evaluating clean queries...")
     evaluate_model(model, tokenizer, index, psg_ids, clean_queries, qrels, device)
+    logger.info("-" * 50)
 
     logger.info("Evaluating typo queries...")
     evaluate_model(model, tokenizer, index, psg_ids, typo_queries, qrels, device)
 
 
 if __name__ == '__main__':
+    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
     args = OmegaConf.load('config.yml')
-    run_id = args.wandb.run_id
-    embs_dir = args.eval.embs_dir
 
-    api = wandb.Api()
-    config = api.run(f"{args.wandb.entity}/{args.wandb.project}/{args.wandb.run_id}").config
-    model_id = config['model_name']
-    main(model_id, run_id, embs_dir)
+    run_cfg = RunConfig(args)
+
+    logger.info(f"Run ID: {args.wandb.run_id}")
+    logger.info(f"Dataset id: {args.eval.dataset_id}")
+    logger.info(f"Relevance mode: {args.eval.rel_mode}")
+
+    main(run_cfg, embs_dir=args.eval.embs_dir, rel_mode=args.eval.rel_mode)

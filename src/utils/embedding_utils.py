@@ -95,6 +95,6 @@ def make_embs_dir(base_path: str):
 
 
 def get_base_path(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str = "output/models"):
-    if data_cfg.dataset_id in {"trec-dl-2019", "trec-dl-2020"}:
+    if data_cfg.dataset_id in {"trec-dl-2019", "trec-dl-2020", "dl-typo"}:
         return f"{embs_dir}/{run_cfg.run_id}/msmarco"
     return f"{embs_dir}/{run_cfg.run_id}/{data_cfg.dataset_id}"
