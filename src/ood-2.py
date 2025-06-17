@@ -1,5 +1,3 @@
-import numpy as np
-import matplotlib.pyplot as plt
 from omegaconf import OmegaConf
 import torch
 import logging
@@ -8,6 +6,7 @@ import wandb
 from utils.evaluation import Evaluator
 from vbll.layers.regression import VBLLReturn
 from pathlib import Path
+from data_loaders import get_query_dataloader, get_qrels
 import csv
 import os
 
@@ -60,6 +59,7 @@ def setup_data(data_cfg: DatasetConfig):
     os.makedirs(data_cfg.root_dir / 'qrels', exist_ok=True)
     os.makedirs(data_cfg.prepared_dir, exist_ok=True)
 
+    print(qrels_dir)
     if not Path(qrels_dir / 'dev.tsv').exists():
         generate_qrels(qrels_path, qrels_dir)
 
@@ -69,8 +69,8 @@ def setup_data(data_cfg: DatasetConfig):
 
 
 def load_embeddings(run_id: str, embs_dir: str):
-    psg_embs = torch.load(embs_dir / f"{run_id}/embeddings.pt")
-    psg_ids = torch.load(embs_dir / f"{run_id}/ids.pt")
+    psg_embs = torch.load(f"{embs_dir}/{run_id}/psg_embs.pt")
+    psg_ids = torch.load(f"{embs_dir}/{run_id}/psg_ids.pt")
 
     return psg_embs, psg_ids
 
@@ -95,17 +95,15 @@ def main(model_id: str, run_id: str, embs_dir: str, eval_mode: str = "dpr"):
 
     data_cfg = DatasetConfig('dl-typo')
     logger.info(f"Loading data")
-    clean_queries = data_cfg.get_query_file(split='clean')
-    logger.info(f"Clean queries loaded: {len(clean_queries)}")
+    clean_queries = get_query_dataloader(data_cfg.get_query_file(split='clean'))
 
-    typo_queries = data_cfg.get_query_file(split='typo')
-    logger.info(f"Typo queries loaded: {len(typo_queries)}")
+    typo_queries = get_query_dataloader(data_cfg.get_query_file(split='typo'))
 
-    qrels = data_cfg.get_qrels_file(split='dev')
+    qrels =  get_qrels(data_cfg.get_qrels_file(split='dev'))
 
     psg_embs, psg_ids = load_embeddings(run_id, embs_dir)
-    model, tokenizer = vbll_model_factory(model_id, device)
-    index = FaissIndex.build(psg_embs)
+    tokenizer, model = vbll_model_factory(model_id, device)
+    index = FaissIndex.build(psg_embs[:,0])
 
     logger.info("Evaluating clean queries...")
     evaluate_model(model, tokenizer, index, psg_ids, clean_queries, qrels, device)
