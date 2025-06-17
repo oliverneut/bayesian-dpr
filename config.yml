@@ -5,7 +5,7 @@ train:
   teacher_model_name: bert-base-msmarco
   max_qry_len: 32
   max_psg_len: 256
-  alpha: 0.0
+  alpha: 0.01
   k: 10
   prior_scale: 1.0
   wishart_scale: 0.1
@@ -19,7 +19,7 @@ train:
 wandb:
   entity: oliver-neut-university-of-amsterdam
   project: bayesian-dpr
-  run_id: 10nfecme
+  run_id: avknlhh5
 
 prepare_data:
   val_size: 100
@@ -27,6 +27,6 @@ prepare_data:
   ce_score_margin: 3
 
 eval:
-  dataset_id: msmarco
-  mode: dpr #dpr or kl
-  embs_dir: /scratch-shared/tmp.alIhTYBxk7
+  dataset_id: msmarco # msmarco or nq or hotpotqa or fiqa
+  rel_mode: kl #dpr or kl
+  embs_dir: output/models # /scratch-shared/tmp.alIhTYBxk7 or output/models
