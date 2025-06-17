@@ -1,28 +1,21 @@
-import sys
-import os
 from typing import Dict
-import json
 from tqdm import tqdm
-from pathlib import Path
 import numpy as np
 from omegaconf import OmegaConf
 import torch
 import logging
-import torch.nn.functional as F
-import wandb
 from utils.indexing import FaissIndex
 from vbll.layers.regression import VBLLReturn
 from scipy.stats import pointbiserialr
 from sklearn.metrics import roc_auc_score, average_precision_score
 from utils.data_utils import DatasetConfig
 from utils.data_loaders import get_queries, get_qrels
-from utils.model_utils import vbll_model_factory, model_factory
+from utils.model_utils import get_model_from_run
+from utils.run_utils import RunConfig
+from utils.embedding_utils import has_embeddings, load_embeddings
 
 
 logger = logging.getLogger(__name__)
-
-# base_path = os.path.abspath(os.path.join('../..'))
-# sys.path.append(base_path)
 
 
 def prepare_test_queries(test_queries: list, queries: Dict, data_cfg: DatasetConfig, num_samples: int, OOD: bool) -> None:
@@ -77,11 +70,11 @@ def calculate_uncertainty_scores(data, tokenizer, model, unc_method="norm"):
 
 def metrics(uncertainty_scores, labels):
     auc = roc_auc_score(labels, uncertainty_scores)
-    print(f"AUROC: {auc}")
+    logger.info(f"AUROC: {auc}")
     aupr = average_precision_score(labels, uncertainty_scores)
-    print(f"AUPR: {aupr}")
+    logger.info(f"AUPR: {aupr}")
     pbs = pointbiserialr(labels, uncertainty_scores)
-    print(f"Point Biserial Correlation: {pbs.correlation}, p-value: {pbs.pvalue}")
+    logger.info(f"Point Biserial Correlation: {pbs.correlation}, p-value: {pbs.pvalue}")
 
 
 def calculate_baseline_scores(queries, tokenizer,  model, index, T=50):
@@ -96,7 +89,7 @@ def calculate_baseline_scores(queries, tokenizer,  model, index, T=50):
         labels.append(query_data['OOD'])
     
         if isinstance(qry_emb, VBLLReturn):
-            qry_emb = qry_emb.predictive.loc
+            qry_emb = qry_emb.predictive.mean
         
         scores, _ = index.search(qry_emb, k=10)
         scores = torch.from_numpy(scores[0])
@@ -115,68 +108,50 @@ def calculate_baseline_scores(queries, tokenizer,  model, index, T=50):
     return np.array(msp_scores), np.array(entropy_scores), np.array(energy_scores), np.array(labels)
 
 
-def main(model_name: str, vbll: bool, run_id: str, T=50):
-    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
-    logger.info(f"Run ID: {run_id}")
+def main(run_cfg: RunConfig, embs_dir: str, T: int = 50, rel_mode: str = "dpr"):
+    logger.info(f"Run ID: {run_cfg.run_id}")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
-    save_dir = f"output/models/{run_id}"
-    model_path = f"{save_dir}/model.pt"
+    tokenizer, model = get_model_from_run(run_cfg, device)
+    data_cfg = DatasetConfig('msmarco')
 
-    if vbll:
-        tokenizer, model = vbll_model_factory(model_name, device)
+    if has_embeddings(run_cfg, data_cfg, embs_dir):
+        psg_embs, _ = load_embeddings(run_cfg, data_cfg, embs_dir, rel_mode, device)
     else:
-        tokenizer, model = model_factory(model_name, device)
-
-    model.load_state_dict(torch.load(model_path, map_location=device))
-    model.eval()
-
-    if os.path.exists(f"{save_dir}/psg_embs.pt") and os.path.exists(f"{save_dir}/psg_ids.pt"):
-        logger.info("Loading precomputed embeddings and IDs from disk.")
-        psg_embs = torch.load(f"{save_dir}/psg_embs.pt", map_location=device)
-        psg_ids = torch.load(f"{save_dir}/psg_ids.pt")
-
-        if psg_embs.dim() == 3:
-            logger.info("Reshaping embeddings from 3D to 2D.")
-            psg_embs = psg_embs[:,0]
-    else:
-        logger.info("No precomputed embeddings found. Please run the encoding script first.")
+        logger.info("No precomputed embeddings found. Please run the eval_retriever script first.")
         return
     
     index = FaissIndex.build(psg_embs)
-
-    msmarco_cfg = DatasetConfig('msmarco')
-    msmarco_queries = get_queries(msmarco_cfg.get_queries_file())
+    msmarco_queries = get_queries(data_cfg.get_queries_file())
 
     for ood_dataset in ['nq', 'hotpotqa', 'fiqa']:
         ood_cfg = DatasetConfig(ood_dataset)
         ood_queries = get_queries(ood_cfg.get_queries_file())
 
         msmarco_ood_queries = []
-        msmarco_ood_queries = prepare_test_queries(msmarco_ood_queries, msmarco_queries, msmarco_cfg, 1000, OOD=False)
+        msmarco_ood_queries = prepare_test_queries(msmarco_ood_queries, msmarco_queries, data_cfg, 1000, OOD=False)
         msmarco_ood_queries = prepare_test_queries(msmarco_ood_queries, ood_queries, ood_cfg, 1000, OOD=True)
         
         unc_method = "norm"
-        if vbll:
-            uncertainty_scores, labels = calculate_uncertainty_scores(msmarco_ood_queries, tokenizer, model, unc_method="norm")
-            print(f"Uncertainty scores calculated using method {unc_method}")
+        if run_cfg.vbll:
+            uncertainty_scores, labels = calculate_uncertainty_scores(msmarco_ood_queries, tokenizer, model, unc_method=unc_method)
+            logger.info(f"Uncertainty scores calculated using method {unc_method}")
             metrics(uncertainty_scores, labels)
-            print('')
-
+        
+        logger.info('')
         msp_scores, entropy_scores, energy_scores, labels = calculate_baseline_scores(msmarco_ood_queries, tokenizer, model, index, T)
-        print(f"Baseline scores calculated")
+        logger.info(f"Baseline scores calculated")
         metrics(msp_scores, labels)
         metrics(entropy_scores, labels)
         metrics(energy_scores, labels)
 
 
 if __name__ == '__main__':
+    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
     args = OmegaConf.load('config.yml')
-    api = wandb.Api()
-    config = api.run(f"{args.wandb.entity}/{args.wandb.project}/{args.wandb.run_id}").config
-    model_id = config['model_name']
-    vbll = config['knowledge_distillation']
-    main(model_id, vbll, args.wandb.run_id, T=50)
-    
+
+    run_cfg = RunConfig(args)
+    logger.info(f"Run ID: {args.wandb.run_id}")
+    main(run_cfg, embs_dir=args.eval.embs_dir)
