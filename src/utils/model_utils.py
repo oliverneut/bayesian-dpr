@@ -2,7 +2,7 @@ from transformers import AutoModel, AutoTokenizer
 import vbll
 import torch
 import torch.nn as nn
-import os
+from utils.run_utils import RunConfig
 from huggingface_hub import PyTorchModelHubMixin
 
 _model_registry = {
@@ -15,35 +15,56 @@ _model_registry = {
     "distilbert-base-msmarco-tasb": "sentence-transformers/msmarco-distilbert-base-tas-b",
 }
 
-def model_factory(model_name, device):
-    if model_name.startswith("bert"):
+
+def get_model_from_run(run_cfg: RunConfig, device: torch.device) -> tuple[AutoTokenizer, AutoModel]:
+    model_id = run_cfg.model_id
+    model_path = f"output/models/{run_cfg.run_id}/model.pt"
+    
+    if run_cfg.vbll:
+        tokenizer, model = vbll_model_factory(model_id, device)
+    else:
+        tokenizer, model = model_factory(model_id, device)
+    
+    model.load_state_dict(torch.load(model_path, map_location=device))
+    model.eval()
+    return tokenizer, model
+
+
+def model_factory(model_id: str, device: torch.device) -> tuple[AutoTokenizer, AutoModel]:
+    if model_id.startswith("bert"):
         retriever_class = BERTRetriever
     
-    hf_model_id = get_hf_model_id(model_name)
+    hf_model_id = get_hf_model_id(model_id)
     tokenizer, model = retriever_class.build(hf_model_id, device=device)
 
     return tokenizer, model
 
-def vbll_model_factory(model_name, device, reg_weight=1, parameterization="diagonal", prior_scale=1, wishart_scale=1):
+
+def vbll_model_factory(model_id, device, reg_weight=1, parameterization="diagonal", prior_scale=1, wishart_scale=1):
     retriever_class = VBLLRetriever
-    hf_model_id = get_hf_model_id(model_name)
+    hf_model_id = get_hf_model_id(model_id)
     tokenizer, model = retriever_class.build(hf_model_id, reg_weight, parameterization, prior_scale, wishart_scale, device=device)
 
     return tokenizer, model
 
+
 def get_hf_model_id(model_name):
     return _model_registry[model_name]
+
 
 def enable_grad(module):
     for p in module.parameters():
         p.requires_grad = True
 
+
 def disable_grad(module):
     for p in module.parameters():
         p.requires_grad = False
 
+
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 
 class Retriever(nn.Module):
     def __init__(self, backbone, device="cpu"):

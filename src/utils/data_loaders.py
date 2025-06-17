@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader, Dataset
 import random
 import torch
 
+
 def get_queries(query_file: str):
     queries = {}
     with open(query_file, encoding="utf8") as fIn:

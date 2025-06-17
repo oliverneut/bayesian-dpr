@@ -2,7 +2,7 @@ import torch
 from tqdm import tqdm
 from vbll.layers.regression import VBLLReturn
 
-def encode_corpus(corpus, tokenizer, encoder, device, eval_mode="dpr", max_psg_len=256):
+def encode_corpus(corpus, tokenizer, encoder, device, max_psg_len=256):
     psg_embs = []
     psg_ids = []
     
@@ -14,16 +14,11 @@ def encode_corpus(corpus, tokenizer, encoder, device, eval_mode="dpr", max_psg_l
 
             if isinstance(psg_emb, VBLLReturn):
                 psg_emb = psg_emb.predictive
-                if eval_mode == "kl":
-                    mean, cov = psg_emb.mean, psg_emb.variance
-                    doc_prior = torch.sum(torch.log(cov) + (torch.square(mean) / cov), dim=1).unsqueeze(1)
-                    inv_cov = 1 / cov
-                    psg_emb = torch.cat([doc_prior, inv_cov, inv_cov, (-2 * mean) * inv_cov], dim=1)
-                else:
-                    psg_emb = psg_emb.loc
+                psg_emb = torch.stack([psg_emb.mean, psg_emb.variance], dim=1)
 
             psg_embs.append(psg_emb.detach().cpu())
             psg_ids += list(psg_id)
+            break
 
         psg_embs = torch.cat(psg_embs, dim=0)
     return psg_embs, psg_ids

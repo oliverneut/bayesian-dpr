@@ -13,12 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 class Evaluator:
-    def __init__(self, tokenizer, model, eval_mode, device, index=None, metrics=None, psg_ids=None):
+    def __init__(self, tokenizer, model, rel_mode, device, index=None, metrics=None, psg_ids=None):
         if metrics is None:
             metrics = {"ndcg", "recip_rank"}
         self.tokenizer = tokenizer
         self.model = model
-        self.eval_mode = eval_mode
+        self.rel_mode = rel_mode
         self.device = device
         self.index = index
         self.metrics = metrics
@@ -56,12 +56,12 @@ class Evaluator:
 
                 if isinstance(qry_emb, VBLLReturn):
                     qry_emb = qry_emb.predictive
-                    if self.eval_mode == "kl":
+                    if self.rel_mode == "kl":
                         mean, cov = qry_emb.mean, qry_emb.variance
                         ones = torch.ones(mean.size(0), 1).to(self.device)
                         qry_emb = -1 * torch.cat([ones, cov, torch.square(mean), mean], dim=1)
                     else:
-                        qry_emb = qry_emb.loc
+                        qry_emb = qry_emb.mean
                 
                 scores, indices = self.index.search(qry_emb, k)
                 
