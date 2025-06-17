@@ -18,34 +18,40 @@ from tqdm import tqdm
 logger = logging.getLogger(__name__)
 
 
-# def evaluate_trec(model, tokenizer, index, psg_ids, data, device):
-#     run = defaultdict(dict)
-#     trec_scores = defaultdict(dict)
+def evaluate_trec(model, tokenizer, index, psg_ids, queries, device):
+    run = defaultdict(dict)
 
-#     with torch.no_grad():
-#         for qry_id, qry in tqdm(data.queries, desc="Evaluating TREC-DL queries"):
-#             qry_enc = tokenizer(qry, padding="max_length", truncation=True, max_length=32, return_tensors="pt").to(device)
+    with torch.no_grad():
+        for qry_id, qry in tqdm(queries, desc="Evaluating TREC-DL queries"):
+            qry_enc = tokenizer(qry, padding="max_length", truncation=True, max_length=32, return_tensors="pt").to(device)
 
-#             qry_emb = model(qry_enc)
-#             if isinstance(qry_emb, VBLLReturn):
-#                 qry_emb = qry_emb.predictive.mean
+            qry_emb = model(qry_enc)
+            if isinstance(qry_emb, VBLLReturn):
+                qry_emb = qry_emb.predictive.mean
 
-#             scores, indices = index.search(qry_emb, k=10)
-#             psg_indices = [psg_ids[idx] for idx in indices[0]]
-#             for score, psg_id in zip(scores[0], psg_indices):
-#                 run[qry_id][psg_id] = float(score)
+            scores, indices = index.search(qry_emb, k=10)
+            psg_indices = [psg_ids[idx] for idx in indices[0]]
+            for score, psg_id in zip(scores[0], psg_indices):
+                run[qry_id][psg_id] = float(score)
         
-#         evaluator = RelevanceEvaluator(data.qrels_dict(), {"ndcg", "recip_rank"})
-#         results = evaluator.evaluate(run)
+    return run
 
-#         for qry_id, metrics in results.items():
-#             trec_scores[qry_id]['ndcg'] = metrics['ndcg']
-#             trec_scores[qry_id]['mrr'] = metrics['recip_rank']
 
-#         ndcg_scores = [trec_scores[qry_id]['ndcg'] for qry_id in trec_scores]
-#         mrr_scores = [trec_scores[qry_id]['mrr'] for qry_id in trec_scores]
-#         logger.info(f"nDCG: {np.mean(ndcg_scores)}")
-#         logger.info(f"MRR: {np.mean(mrr_scores)}")
+def calculate_metrics(run, qrels, k=10):
+    evaluator = RelevanceEvaluator(qrels, {"ndcg", "recip_rank"})
+    results = evaluator.evaluate(run)
+
+    ndcg_at_k = []
+    mrr_at_k = []
+    for _, metrics in results.items():
+        ndcg_at_k.append(metrics["ndcg"])
+        mrr_at_k.append(metrics["recip_rank"])
+    results_agg = {
+        f"nDCG@{k}": float(np.mean(ndcg_at_k)),
+        f"MRR@{k}": float(np.mean(mrr_at_k)),
+    }
+    logger.info(results_agg)
+    return results_agg
 
 
 def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: str = "dpr"):
@@ -64,18 +70,16 @@ def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: s
 
     dataset_name = "trec-dl-2019"
     trec_dl_19 = ir_datasets.load(f"msmarco-passage/{dataset_name}/judged")
-
-    evaluator = Evaluator(tokenizer, model, rel_mode, device, index=index,
-        metrics={"ndcg", "recip_rank"}, psg_ids=psg_ids)
-    
     logger.info(f"Evaluating {dataset_name} dataset...")
-    evaluator.evaluate_retriever(trec_dl_19.queries, trec_dl_19.qrels_dict(), k=10)
+    run = evaluate_trec(model, tokenizer, index, psg_ids, trec_dl_19.queries, device)
+    metrics = calculate_metrics(run, trec_dl_19.qrels_dict(), k=10)
 
     dataset_name = "trec-dl-2020"
     trec_dl_20 = ir_datasets.load(f"msmarco-passage/{dataset_name}/judged")
 
     logger.info(f"Evaluating {dataset_name} dataset...")
-    evaluator.evaluate_retriever(trec_dl_20.queries, trec_dl_20.qrels_dict(), k=10)
+    run = evaluate_trec(model, tokenizer, index, psg_ids, trec_dl_20.queries, device)
+    metrics = calculate_metrics(run, trec_dl_20.qrels_dict(), k=10)
 
 
 if __name__ == '__main__':
@@ -86,13 +90,7 @@ if __name__ == '__main__':
     data_cfg = DatasetConfig(args.eval.dataset_id)
 
     logger.info(f"Run ID: {args.wandb.run_id}")
+    assert args.eval.dataset_id == 'msmarco'
     logger.info(f"Dataset id: {args.eval.dataset_id}")
 
     main(run_cfg, data_cfg, embs_dir=args.eval.embs_dir)
-
-    # args = OmegaConf.load('config.yml')
-    # api = wandb.Api()
-    # config = api.run(f"{args.wandb.entity}/{args.wandb.project}/{args.wandb.run_id}").config
-    # model_id = config['model_name']
-    # vbll = config['knowledge_distillation']
-    # main(model_id, vbll, args.wandb.run_id)
