@@ -144,15 +144,15 @@ def main(run_cfg: RunConfig, embs_dir: str, T: int = 5, rel_mode: str = "dpr"):
     index = FaissIndex.build(psg_embs)
     msmarco_queries = get_queries(msmarco_cfg.get_queries_file())
 
-    for ood_dataset in ['fiqa', 'nq', 'hotpotqa', 'fiqa']:
+    for ood_dataset in ['nq', 'hotpotqa', 'fiqa']:
         logger.info(f"Processing OOD dataset: {ood_dataset}")
         query_dl = create_eval_dataset(msmarco_queries, msmarco_cfg, ood_dataset)
-        unc_method = "norm"
 
         if run_cfg.vbll:
-            uncertainty_scores, labels = calculate_uncertainty_scores(query_dl, tokenizer, model, device, unc_method=unc_method)
-            logger.info(f"Uncertainty scores calculated using method {unc_method}")
-            report_metrics(uncertainty_scores, labels)
+            for unc_method in ["norm", "trace", "det"]:
+                uncertainty_scores, labels = calculate_uncertainty_scores(query_dl, tokenizer, model, device, unc_method=unc_method)
+                logger.info(f"Uncertainty scores calculated using method {unc_method}")
+                report_metrics(uncertainty_scores, labels)
         
         logger.info('')
         msp_scores, entropy_scores, energy_scores, labels = calculate_baseline_scores(query_dl, tokenizer, model, index, device, T)
