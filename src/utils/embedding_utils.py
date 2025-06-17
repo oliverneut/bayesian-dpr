@@ -28,7 +28,7 @@ class VBLLEmbeddingDataset(Dataset):
 def process_embeddings_kl(psg_embs: DataLoader):
     processed_embs = []
     
-    for mean, cov, _ in tqdm(psg_embs, desc="Processsing embeddings into KL format"):
+    for mean, cov in tqdm(psg_embs, desc="Processsing embeddings into KL format"):
         doc_prior = torch.sum(torch.log(cov) + (torch.square(mean) / cov), dim=1).unsqueeze(1)
         inv_cov = 1 / cov
         psg_emb = torch.cat([doc_prior, inv_cov, inv_cov, (-2 * mean) * inv_cov], dim=1)
@@ -55,7 +55,7 @@ def load_embeddings(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, 
         if rel_mode == "dpr":
             psg_embs = psg_embs[:, 0]
         else:
-            psg_embs_dataset = VBLLEmbeddingDataset(psg_embs, psg_ids)
+            psg_embs_dataset = VBLLEmbeddingDataset(psg_embs)
             psg_embs_dataloader = DataLoader(psg_embs_dataset, batch_size=16, shuffle=False)
             psg_embs = process_embeddings_kl(psg_embs_dataloader)
 

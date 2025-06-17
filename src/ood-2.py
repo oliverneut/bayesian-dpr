@@ -66,8 +66,8 @@ def setup_data(data_cfg: DatasetConfig):
         generate_queries(typos_path, data_cfg.prepared_dir, split='typo')
 
 
-def evaluate_model(model, tokenizer, index, psg_ids, queries, qrels, device, eval_mode="dpr", k=10):
-    evaluator = Evaluator(tokenizer, model, eval_mode, device, index=index,
+def evaluate_model(model, tokenizer, index, psg_ids, queries, qrels, device, rel_mode="dpr", k=10):
+    evaluator = Evaluator(tokenizer, model, rel_mode, device, index=index,
         metrics={"ndcg", "recip_rank"}, psg_ids=psg_ids)
     
     metrics = evaluator.evaluate_retriever(queries, qrels, k=10)
@@ -78,7 +78,6 @@ def evaluate_model(model, tokenizer, index, psg_ids, queries, qrels, device, eva
 
 def main(run_cfg: RunConfig, embs_dir: str, rel_mode: str = "dpr"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    logger.info(f"Run ID: {run_cfg.run_id}")
 
     logger.info("Setting up data...")
     data_cfg = DatasetConfig('dl-typo')
@@ -100,15 +99,16 @@ def main(run_cfg: RunConfig, embs_dir: str, rel_mode: str = "dpr"):
     index = FaissIndex.build(psg_embs)
 
     logger.info("Evaluating clean queries...")
-    evaluate_model(model, tokenizer, index, psg_ids, clean_queries, qrels, device)
+    evaluate_model(model, tokenizer, index, psg_ids, clean_queries, qrels, device, rel_mode)
     logger.info("-" * 50)
 
     logger.info("Evaluating typo queries...")
-    evaluate_model(model, tokenizer, index, psg_ids, typo_queries, qrels, device)
+    evaluate_model(model, tokenizer, index, psg_ids, typo_queries, qrels, device, rel_mode)
 
 
 if __name__ == '__main__':
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
+    logger.info("OOD-2 experiment")
     args = OmegaConf.load('config.yml')
 
     run_cfg = RunConfig(args)

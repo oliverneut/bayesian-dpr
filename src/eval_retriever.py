@@ -40,6 +40,7 @@ def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: s
 
 if __name__ == '__main__':
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
+    logger.info("Eval retriever experiment")
     args = OmegaConf.load('config.yml')
 
     run_cfg = RunConfig(args)

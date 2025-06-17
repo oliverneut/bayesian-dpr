@@ -150,6 +150,7 @@ def main(run_cfg: RunConfig, embs_dir: str, T: int = 50, rel_mode: str = "dpr"):
 
 if __name__ == '__main__':
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
+    logger.info("OOD-3 experiment")
     args = OmegaConf.load('config.yml')
 
     run_cfg = RunConfig(args)
