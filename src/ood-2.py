@@ -67,7 +67,7 @@ def setup_data(data_cfg: DatasetConfig):
 
 
 def evaluate_model(model, tokenizer, index, psg_ids, queries, qrels, device, rel_mode="dpr", k=10):
-    evaluator = Evaluator(tokenizer, model, rel_mode, device, index=index,
+    evaluator = Evaluator(tokenizer, model, device, rel_mode, index=index,
         metrics={"ndcg", "recip_rank"}, psg_ids=psg_ids)
     
     metrics = evaluator.evaluate_retriever(queries, qrels, k=10)
@@ -96,6 +96,7 @@ def main(run_cfg: RunConfig, embs_dir: str, rel_mode: str = "dpr"):
         logger.info("No precomputed embeddings found. Please run the eval_retriever script first.")
         return
 
+    logger.info("Building the index")
     index = FaissIndex.build(psg_embs)
 
     logger.info("Evaluating clean queries...")

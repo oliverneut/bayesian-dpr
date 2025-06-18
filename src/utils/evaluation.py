@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class Evaluator:
-    def __init__(self, tokenizer, model, rel_mode, device, index=None, metrics=None, psg_ids=None):
+    def __init__(self, tokenizer, model, device, rel_mode="dpr", index=None, metrics=None, psg_ids=None):
         if metrics is None:
             metrics = {"ndcg", "recip_rank"}
         self.tokenizer = tokenizer

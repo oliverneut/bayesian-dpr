@@ -386,7 +386,6 @@ def main(run_cfg: RunConfig, embs_dir: str):
     for dataset_name in ["trec-dl-2019", "trec-dl-2020"]:
         trec_dl = ir_datasets.load(f"msmarco-passage/{dataset_name}/judged")
         ndcg_scores, mrr_scores, qpp_scores = calculate_uncertainty_scores(trec_dl, tokenizer, model, index, psg_ids, device)
-        qpp_scores = defaultdict(dict)
         qpp_scores = calculate_baseline_scores(qpp_scores, trec_dl, dataset_name)
 
         logger.info(f"Calculating correlations for {dataset_name}")
@@ -398,6 +397,8 @@ if __name__ == '__main__':
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
     logger.info("QPP experiment")
     args = OmegaConf.load('config.yml')
+
+    logger.info(f"Run ID: {args.wandb.run_id}")
 
     run_cfg = RunConfig(args)
 

@@ -29,7 +29,7 @@ def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: s
 
     index = FaissIndex.build(psg_embs)
     
-    evaluator = Evaluator(tokenizer, model, rel_mode, device, index=index,
+    evaluator = Evaluator(tokenizer, model, device, rel_mode, index=index,
         metrics={"ndcg", "recip_rank"}, psg_ids=psg_ids)
     
     metrics = evaluator.evaluate_retriever(test_queries, qrels, k=10)
