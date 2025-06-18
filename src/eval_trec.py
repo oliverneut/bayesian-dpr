@@ -68,18 +68,11 @@ def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: s
     
     index = FaissIndex.build(psg_embs)
 
-    dataset_name = "trec-dl-2019"
-    trec_dl_19 = ir_datasets.load(f"msmarco-passage/{dataset_name}/judged")
-    logger.info(f"Evaluating {dataset_name} dataset...")
-    run = evaluate_trec(model, tokenizer, index, psg_ids, trec_dl_19.queries, device)
-    metrics = calculate_metrics(run, trec_dl_19.qrels_dict(), k=10)
-
-    dataset_name = "trec-dl-2020"
-    trec_dl_20 = ir_datasets.load(f"msmarco-passage/{dataset_name}/judged")
-
-    logger.info(f"Evaluating {dataset_name} dataset...")
-    run = evaluate_trec(model, tokenizer, index, psg_ids, trec_dl_20.queries, device)
-    metrics = calculate_metrics(run, trec_dl_20.qrels_dict(), k=10)
+    for dataset_name in ["trec-dl-2019", "trec-dl-2020"]:
+        trec_dl = ir_datasets.load(f"msmarco-passage/{dataset_name}")
+        logger.info(f"Evaluating {dataset_name} dataset...")
+        run = evaluate_trec(model, tokenizer, index, psg_ids, trec_dl.queries, device)
+        metrics = calculate_metrics(run, trec_dl.qrels_dict(), k=10)
 
 
 if __name__ == '__main__':
