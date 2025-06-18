@@ -35,6 +35,7 @@ def process_embeddings_kl(psg_embs: DataLoader):
 
         processed_embs.append(psg_emb.detach().cpu())
 
+    logger.info("Concatenating the processed embs")
     processed_embs = torch.cat(processed_embs, dim=0)
     return processed_embs
 
