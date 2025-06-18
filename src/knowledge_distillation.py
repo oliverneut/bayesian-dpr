@@ -47,7 +47,6 @@ class DPRTrainer:
         self.run = run
         self.device = device
         self.save_path = save_path
-        self.method = "dpr"
         self.loss_func = BinaryPassageRetrievalLoss()
         self.args = args
 
@@ -111,11 +110,12 @@ class DPRTrainer:
     def compute_validation_metrics(self, k=20):
         self.model.eval()
         psg_embs, psg_ids = encode_corpus(self.val_corpus, self.tokenizer, self.model, self.device, max_psg_len=self.args.max_psg_len)
+        if psg_embs.dim() == 3:
+            psg_embs = psg_embs[:,0]
         index = FaissIndex.build(psg_embs)
         evaluator = Evaluator(
             self.tokenizer,
             self.model,
-            self.method,
             self.device,
             index=index,
             metrics={"ndcg", "recip_rank"},
@@ -133,7 +133,6 @@ class KnowledgeDistillationTrainer(DPRTrainer):
     def __init__(self, train_dl, val_queries, val_corpus, qrels, run, device, save_path, args):
         super().__init__(train_dl, val_queries, val_corpus, qrels, run, device, save_path, args)
         self.teacher_model = None
-        self.method = "vbll"
     
     def train(self, num_epochs, lr, min_lr, warmup_rate, k=20, alpha=1.0):
         optimizer, scheduler = make_lr_scheduler_with_warmup(
