@@ -72,6 +72,11 @@ def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: s
         trec_dl = ir_datasets.load(f"msmarco-passage/{dataset_name}")
         logger.info(f"Evaluating {dataset_name} dataset...")
         run = evaluate_trec(model, tokenizer, index, psg_ids, trec_dl.queries, device)
+
+        qrels = defaultdict(dict)
+        for qrel in trec_dl.qrels_iter():
+            qrels[qrel.query_id][qrel.doc_id] = qrel.relevance
+
         metrics = calculate_metrics(run, trec_dl.qrels_dict(), k=10)
 
 
