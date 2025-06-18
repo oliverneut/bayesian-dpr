@@ -84,7 +84,7 @@ def get_embeddings(run_cfg: RunConfig,
         if rel_mode == "dpr":
             psg_embs = psg_embs[:, 0]
         else:
-            psg_embs_dataset = VBLLEmbeddingDataset(psg_embs, psg_ids)
+            psg_embs_dataset = VBLLEmbeddingDataset(psg_embs)
             psg_embs_dataloader = DataLoader(psg_embs_dataset, batch_size=16, shuffle=False)
             psg_embs = process_embeddings_kl(psg_embs_dataloader)
 
