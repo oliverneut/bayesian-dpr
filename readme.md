@@ -40,7 +40,7 @@ python prepare_data.py
 
 ## Configuration
 
-All model parameters and training settings can be configured in `src/utils/config.yml`. Key parameters include:
+All model parameters and training settings can be configured in `config.yml`. Key parameters include:
 
 ```yaml
 train:

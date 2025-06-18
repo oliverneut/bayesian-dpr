@@ -82,7 +82,7 @@ class DPRTrainer:
                 self.run.log({"kd_loss": 0, "task_loss": task_loss.item(), "loss": loss.item()})
 
             ndcg, mrr = self.compute_validation_metrics(k)
-            logger.info(f"Epoch {epoch}/{args.num_epochs} ")
+            logger.info(f"Epoch {epoch}/{self.args.num_epochs} ")
             logger.info(f"Validation metrics: nDCG@{k}={ndcg:.4f} | MRR@{k}={mrr:.4f}")
             self.run.log({f"nDCG@{k}": ndcg, f"MRR@{k}": mrr})
 
