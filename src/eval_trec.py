@@ -22,14 +22,14 @@ def evaluate_trec(model, tokenizer, index, psg_ids, queries, device):
     run = defaultdict(dict)
 
     with torch.no_grad():
-        for qry_id, qry in tqdm(queries, desc="Evaluating TREC-DL queries"):
+        for qry_id, qry in tqdm(queries.queries_iter(), desc="Evaluating TREC-DL queries"):
             qry_enc = tokenizer(qry, padding="max_length", truncation=True, max_length=32, return_tensors="pt").to(device)
 
             qry_emb = model(qry_enc)
             if isinstance(qry_emb, VBLLReturn):
                 qry_emb = qry_emb.predictive.mean
 
-            scores, indices = index.search(qry_emb, k=10)
+            scores, indices = index.search(qry_emb, k=1000)
             psg_indices = [psg_ids[idx] for idx in indices[0]]
             for score, psg_id in zip(scores[0], psg_indices):
                 run[qry_id][psg_id] = float(score)
@@ -38,20 +38,21 @@ def evaluate_trec(model, tokenizer, index, psg_ids, queries, device):
 
 
 def calculate_metrics(run, qrels, k=10):
-    evaluator = RelevanceEvaluator(qrels, {"ndcg", "recip_rank"})
+    evaluator = RelevanceEvaluator(qrels, {"ndcg", "recip_rank", "ndcg_cut_10", "map"})
     results = evaluator.evaluate(run)
 
-    ndcg_at_k = []
-    mrr_at_k = []
-    for _, metrics in results.items():
-        ndcg_at_k.append(metrics["ndcg"])
-        mrr_at_k.append(metrics["recip_rank"])
-    results_agg = {
-        f"nDCG@{k}": float(np.mean(ndcg_at_k)),
-        f"MRR@{k}": float(np.mean(mrr_at_k)),
-    }
-    logger.info(results_agg)
-    return results_agg
+    agg = defaultdict(list)
+
+    for _, qvals in results.items():
+        for metric, met_val in qvals.items():
+            agg[metric].append(met_val)
+    
+    eval_res = {}
+
+    for metric, values in agg.items():
+        m, s = np.mean(values), np.std(values)
+        eval_res[metric] = (m, s)
+        logger.info(f"\t{metric<20}: {m} ({s:0.4f})")
 
 
 def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: str = "dpr"):
@@ -62,6 +63,7 @@ def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: s
 
     if has_embeddings(run_cfg, data_cfg, embs_dir):
         psg_embs, psg_ids = load_embeddings(run_cfg, data_cfg, embs_dir, rel_mode, device)
+        logger.info(f"Loaded {len(psg_ids)} passage embeddings with shape {psg_embs.shape}")
     else:
         logger.info("No precomputed embeddings found. Please run the eval_retriever script first.")
         return
@@ -72,7 +74,7 @@ def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: s
         trec_dl = ir_datasets.load(f"msmarco-passage/{dataset_name}/judged")
         logger.info(f"Evaluating {dataset_name} dataset...")
         run = evaluate_trec(model, tokenizer, index, psg_ids, trec_dl.queries, device)
-        metrics = calculate_metrics(run, trec_dl.qrels_dict(), k=10)
+        calculate_metrics(run, trec_dl.qrels_dict(), k=10)
 
 
 if __name__ == '__main__':
