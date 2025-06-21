@@ -14,6 +14,7 @@ from utils.data_loaders import get_queries, get_qrels
 from utils.model_utils import get_model_from_run
 from utils.run_utils import RunConfig
 from utils.embedding_utils import has_embeddings, load_embeddings
+from sklearn.cluster import KMeans
 
 
 logger = logging.getLogger(__name__)
@@ -51,17 +52,35 @@ def uncertainty_score(qry_emb, unc_method="norm"):
         raise ValueError(f"Unknown uncertainty method: {unc_method}")
 
 
+def embed_queries(data, tokenizer, model, device):
+    labels = []
+    qry_embs = []
+
+    for qry, ood in tqdm(data, desc="Embedding queries"):   
+        qry_enc = tokenizer(qry, padding="max_length", truncation=True, max_length=32, return_tensors="pt").to(device)
+
+        qry_emb = model(qry_enc)
+
+        if isinstance(qry_emb, VBLLReturn):
+            qry_emb = qry_emb.predictive.mean
+
+        labels += ood.tolist()
+        qry_embs += qry_emb.detach().tolist()
+
+    return np.array(qry_embs), np.array(labels)
+
+
 def calculate_uncertainty_scores(data, tokenizer, model, device, unc_method="norm"):
     uncertainty_scores = []
     labels = []
     for qry, ood in tqdm(data, desc="Calculating uncertainty scores"):   
         qry_enc = tokenizer(qry, padding="max_length", truncation=True, max_length=32, return_tensors="pt").to(device)
-        qry_emb = model(qry_enc)
+        qry_emb = model(qry_enc).predictive
 
-        uncertainty_scores += uncertainty_score(qry_emb.predictive, unc_method).tolist()
+        uncertainty_scores += uncertainty_score(qry_emb, unc_method).tolist()
         labels += ood.tolist()
 
-    return np.array(uncertainty_scores), np.array(labels)   
+    return np.array(uncertainty_scores), np.array(labels)
 
 
 def report_metrics(uncertainty_scores, labels):
@@ -135,13 +154,13 @@ def main(run_cfg: RunConfig, embs_dir: str, T: int = 5, rel_mode: str = "dpr"):
     tokenizer, model = get_model_from_run(run_cfg, device)
     msmarco_cfg = DatasetConfig('msmarco')
 
-    if has_embeddings(run_cfg, msmarco_cfg, embs_dir):
-        psg_embs, _ = load_embeddings(run_cfg, msmarco_cfg, embs_dir, rel_mode, device)
-    else:
-        logger.info("No precomputed embeddings found. Please run the eval_retriever script first.")
-        return
+    # if has_embeddings(run_cfg, msmarco_cfg, embs_dir):
+    #     psg_embs, _ = load_embeddings(run_cfg, msmarco_cfg, embs_dir, rel_mode, device)
+    # else:
+    #     logger.info("No precomputed embeddings found. Please run the eval_retriever script first.")
+    #     return
     
-    index = FaissIndex.build(psg_embs)
+    # index = FaissIndex.build(psg_embs)
     msmarco_queries = get_queries(msmarco_cfg.get_queries_file())
 
     for ood_dataset in ['nq', 'hotpotqa', 'fiqa']:
@@ -149,17 +168,23 @@ def main(run_cfg: RunConfig, embs_dir: str, T: int = 5, rel_mode: str = "dpr"):
         query_dl = create_eval_dataset(msmarco_queries, msmarco_cfg, ood_dataset)
 
         if run_cfg.vbll:
-            for unc_method in ["norm", "trace", "det"]:
+            for unc_method in ["norm"]:
                 uncertainty_scores, labels = calculate_uncertainty_scores(query_dl, tokenizer, model, device, unc_method=unc_method)
                 logger.info(f"Uncertainty scores calculated using method {unc_method}")
                 report_metrics(uncertainty_scores, labels)
         
-        logger.info('')
-        msp_scores, entropy_scores, energy_scores, labels = calculate_baseline_scores(query_dl, tokenizer, model, index, device, T)
-        logger.info(f"Baseline scores calculated")
-        report_metrics(msp_scores, labels)
-        report_metrics(entropy_scores, labels)
-        report_metrics(energy_scores, labels)
+        # logger.info('')
+        # msp_scores, entropy_scores, energy_scores, labels = calculate_baseline_scores(query_dl, tokenizer, model, index, device, T)
+        # logger.info(f"Baseline scores calculated")
+        # report_metrics(msp_scores, labels)
+        # report_metrics(entropy_scores, labels)
+        # report_metrics(energy_scores, labels)
+
+        logger.info("Clustering uncertainty scores")
+        qry_embs, labels = embed_queries(query_dl, tokenizer, model, device)
+        kmeans = KMeans(n_clusters=2, random_state=42)
+        clusters = kmeans.fit_predict(qry_embs)
+        report_metrics(clusters, labels)
 
 
 if __name__ == '__main__':
