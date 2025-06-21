@@ -335,14 +335,14 @@ def calculate_baseline_scores(qpp_scores: dict, data: Dataset, dataset_name):
     return qpp_scores
 
 
-def calculate_uncertainty_scores(data, tokenizer, model, index, psg_ids, device):
+def calculate_uncertainty_scores(data, tokenizer, model, index, psg_ids, device, noise: bool):
     qpp_scores = defaultdict(dict)
     run = defaultdict(dict)
 
     with torch.no_grad():
         for qry_id, qry in data.queries:
             qry_enc = tokenizer(qry, padding="max_length", truncation=True, max_length=32, return_tensors="pt").to(device)
-            qry_emb = model(qry_enc).predictive
+            qry_emb = model.forward(qry_enc, noise=noise).predictive
 
             for unc_method in UNC_METHODS:
                 qpp_scores[qry_id][unc_method] = uncertainty_score(qry_emb, unc_method).item()
@@ -367,7 +367,7 @@ def calculate_uncertainty_scores(data, tokenizer, model, index, psg_ids, device)
     return ndcg_scores, mrr_scores, qpp_scores
 
 
-def main(run_cfg: RunConfig, embs_dir: str):
+def main(run_cfg: RunConfig, embs_dir: str, noise: bool):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
@@ -385,7 +385,7 @@ def main(run_cfg: RunConfig, embs_dir: str):
 
     for dataset_name in ["trec-dl-2019", "trec-dl-2020"]:
         trec_dl = ir_datasets.load(f"msmarco-passage/{dataset_name}/judged")
-        ndcg_scores, mrr_scores, qpp_scores = calculate_uncertainty_scores(trec_dl, tokenizer, model, index, psg_ids, device)
+        ndcg_scores, mrr_scores, qpp_scores = calculate_uncertainty_scores(trec_dl, tokenizer, model, index, psg_ids, device, noise)
         qpp_scores = calculate_baseline_scores(qpp_scores, trec_dl, dataset_name)
 
         logger.info(f"Calculating correlations for {dataset_name}")
@@ -397,9 +397,11 @@ if __name__ == '__main__':
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
     logger.info("QPP experiment")
     args = OmegaConf.load('config.yml')
+    noise = True
+    logger.info(f'Noise: {noise}')
 
     logger.info(f"Run ID: {args.wandb.run_id}")
 
     run_cfg = RunConfig(args)
 
-    main(run_cfg, args.eval.embs_dir)
+    main(run_cfg, args.eval.embs_dir, noise)
