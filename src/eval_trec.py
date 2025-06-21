@@ -37,8 +37,17 @@ def evaluate_trec(model, tokenizer, index, psg_ids, data, device):
     return run
 
 
-def calculate_metrics(run, qrels, k=10):
-    evaluator = RelevanceEvaluator(qrels, {"ndcg", "recip_rank", "ndcg_cut_10", "map"})
+def shorten_run(run, k=10):
+    short_run = defaultdict(dict)
+    for qry_id, r in run.items():
+        for psg_id, score in sorted(r.items(), key=lambda x : -x[1])[:k]:
+            run[qry_id][psg_id] = score
+
+    return short_run
+
+
+def evaluate_run(run: dict, qrels: dict, metrics: dict):
+    evaluator = RelevanceEvaluator(qrels, metrics)
     results = evaluator.evaluate(run)
 
     agg = defaultdict(list)
@@ -53,6 +62,11 @@ def calculate_metrics(run, qrels, k=10):
         m, s = np.mean(values), np.std(values)
         eval_res[metric] = (m, s)
         logger.info(f"\t{metric}: {m} ({s:0.4f})")
+
+
+def calculate_metrics(run: dict, qrels: dict):
+    evaluate_run(run, qrels, metrics={'recip_rank', 'map', 'ndcg_cut_10', 'ndcg'})
+    evaluate_run(shorten_run(run, k=10), qrels, metrics={'recip_rank', 'map', 'ndcg_cut_10', 'ndcg'})
 
 
 def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: str = "dpr"):
@@ -74,7 +88,7 @@ def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: s
         trec_dl = ir_datasets.load(f"msmarco-passage/{dataset_name}/judged")
         logger.info(f"Evaluating {dataset_name} dataset...")
         run = evaluate_trec(model, tokenizer, index, psg_ids, trec_dl, device)
-        calculate_metrics(run, trec_dl.qrels_dict(), k=10)
+        calculate_metrics(run, trec_dl.qrels_dict())
 
 
 if __name__ == '__main__':
