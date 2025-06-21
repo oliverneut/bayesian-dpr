@@ -41,7 +41,7 @@ def shorten_run(run, k=10):
     short_run = defaultdict(dict)
     for qry_id, r in run.items():
         for psg_id, score in sorted(r.items(), key=lambda x : -x[1])[:k]:
-            run[qry_id][psg_id] = score
+            short_run[qry_id][psg_id] = score
 
     return short_run
 
