@@ -18,11 +18,11 @@ from tqdm import tqdm
 logger = logging.getLogger(__name__)
 
 
-def evaluate_trec(model, tokenizer, index, psg_ids, queries, device):
+def evaluate_trec(model, tokenizer, index, psg_ids, data, device):
     run = defaultdict(dict)
 
     with torch.no_grad():
-        for qry_id, qry in tqdm(queries.queries_iter(), desc="Evaluating TREC-DL queries"):
+        for qry_id, qry in tqdm(data.queries_iter(), desc="Evaluating TREC-DL queries"):
             qry_enc = tokenizer(qry, padding="max_length", truncation=True, max_length=32, return_tensors="pt").to(device)
 
             qry_emb = model(qry_enc)
@@ -52,7 +52,7 @@ def calculate_metrics(run, qrels, k=10):
     for metric, values in agg.items():
         m, s = np.mean(values), np.std(values)
         eval_res[metric] = (m, s)
-        logger.info(f"\t{metric<20}: {m} ({s:0.4f})")
+        logger.info(f"\t{metric}: {m} ({s:0.4f})")
 
 
 def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: str = "dpr"):
@@ -73,7 +73,7 @@ def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: s
     for dataset_name in ["trec-dl-2019", "trec-dl-2020"]:
         trec_dl = ir_datasets.load(f"msmarco-passage/{dataset_name}/judged")
         logger.info(f"Evaluating {dataset_name} dataset...")
-        run = evaluate_trec(model, tokenizer, index, psg_ids, trec_dl.queries, device)
+        run = evaluate_trec(model, tokenizer, index, psg_ids, trec_dl, device)
         calculate_metrics(run, trec_dl.qrels_dict(), k=10)
 
 
