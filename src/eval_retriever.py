@@ -30,12 +30,13 @@ def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: s
     index = FaissIndex.build(psg_embs)
     
     evaluator = Evaluator(tokenizer, model, device, rel_mode, index=index,
-        metrics={"ndcg", "recip_rank"}, psg_ids=psg_ids)
+        metrics={"ndcg", "ndcg_cut_10", "recip_rank"}, psg_ids=psg_ids)
     
     metrics = evaluator.evaluate_retriever(test_queries, qrels, k=10)
     
     logger.info(f"nDCG@{10}: {metrics[f"nDCG@{10}"]}")
     logger.info(f"MRR@{10}: {metrics[f"MRR@{10}"]}")
+    logger.info(f"ndcg_cut_10: {metrics["ndcg_cut_10"]}")
 
 
 if __name__ == '__main__':

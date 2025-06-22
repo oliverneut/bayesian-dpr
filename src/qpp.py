@@ -352,16 +352,16 @@ def calculate_uncertainty_scores(data, tokenizer, model, index, psg_ids, device,
             for score, psg_id in zip(scores[0], psg_indices):
                 run[qry_id][psg_id] = float(score)
         
-    evaluator = RelevanceEvaluator(data.qrels_dict(), {"ndcg", "recip_rank"})
+    evaluator = RelevanceEvaluator(data.qrels_dict(), {"ndcg", "ndcg_cut_10", "recip_rank"})
     results = evaluator.evaluate(run)
 
     for qry_id, metrics in results.items():
-        qpp_scores[qry_id]['ndcg'] = metrics['ndcg']
+        qpp_scores[qry_id]['ndcg_cut_10'] = metrics['ndcg_cut_10']
         qpp_scores[qry_id]['mrr'] = metrics['recip_rank']
 
-    ndcg_scores = [qpp_scores[qry_id]['ndcg'] for qry_id in qpp_scores]
+    ndcg_scores = [qpp_scores[qry_id]['ndcg_cut_10'] for qry_id in qpp_scores]
     mrr_scores = [qpp_scores[qry_id]['mrr'] for qry_id in qpp_scores]
-    logger.info(f"nDCG: {np.mean(ndcg_scores)}")
+    logger.info(f"ndcg_cut_10: {np.mean(ndcg_scores)}")
     logger.info(f"MRR: {np.mean(mrr_scores)}")
     
     return ndcg_scores, mrr_scores, qpp_scores
