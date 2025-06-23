@@ -68,12 +68,13 @@ def setup_data(data_cfg: DatasetConfig):
 
 def evaluate_model(model, tokenizer, index, psg_ids, queries, qrels, device, rel_mode="dpr", k=10):
     evaluator = Evaluator(tokenizer, model, device, rel_mode, index=index,
-        metrics={"ndcg", "recip_rank"}, psg_ids=psg_ids)
+        metrics={"ndcg", "ndcg_cut_10", "recip_rank"}, psg_ids=psg_ids)
     
     metrics = evaluator.evaluate_retriever(queries, qrels, k=10)
     
     logger.info(f"nDCG@{10}: {metrics[f"nDCG@{10}"]}")
     logger.info(f"MRR@{10}: {metrics[f"MRR@{10}"]}")
+    logger.info(f"ndcg_cut_10: {metrics["ndcg_cut_10"]}")
 
 
 def main(run_cfg: RunConfig, embs_dir: str, rel_mode: str = "dpr"):

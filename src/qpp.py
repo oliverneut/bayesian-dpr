@@ -209,17 +209,24 @@ def calculate_correlations(ndcg_scores, mrr_scores, qpp_scores):
 
     for predictor in qpp_scores_predictors:
         predictor_scores = [qpp_scores[qry_id][predictor] for qry_id in qpp_scores]
-        
+
+        res = []
         logger.info(f"Predictor: {predictor}")
         corr, p_val = pearsonr(predictor_scores, ndcg_scores)
+        res.append(corr)
         logger.info(f"nDCG Pearson Correlation: {corr} p_value: {p_val}")
         corr, p_val = pearsonr(predictor_scores, mrr_scores)
+        res.append(corr)
         logger.info(f"MRR Pearson Correlation: {corr} p_value: {p_val}")
         corr, p_val = kendalltau(predictor_scores, ndcg_scores)
+        res.append(corr)
         logger.info(f"nDCG Kendall Tau: {corr} p_value: {p_val}")
         corr, p_val = kendalltau(predictor_scores, mrr_scores)
+        res.append(corr)
         logger.info(f"MRR Kendall Tau: {corr} p_value: {p_val}")
+        logger.info('\t'.join(map(str, res)))
         logger.info('------------------------------------------------------')
+
 
 
 def get_query_dict(data):
