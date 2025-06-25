@@ -65,7 +65,10 @@ def evaluate_run(run: dict, qrels: dict, metrics: dict):
 
 
 def calculate_metrics(run: dict, qrels: dict):
+    logger.info('Long run k=1000')
     evaluate_run(run, qrels, metrics={'recip_rank', 'map', 'ndcg_cut_10', 'ndcg'})
+
+    logger.info('Short run k=10')
     evaluate_run(shorten_run(run, k=10), qrels, metrics={'recip_rank', 'map', 'ndcg_cut_10', 'ndcg'})
 
 

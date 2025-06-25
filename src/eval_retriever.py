@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: str = "dpr"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
+    k = 10
+    logger.info(f"k={k}")
 
     tokenizer, model = get_model_from_run(run_cfg, device)
 
@@ -30,12 +32,13 @@ def main(run_cfg: RunConfig, data_cfg: DatasetConfig, embs_dir: str, rel_mode: s
     index = FaissIndex.build(psg_embs)
     
     evaluator = Evaluator(tokenizer, model, device, rel_mode, index=index,
-        metrics={"ndcg", "recip_rank"}, psg_ids=psg_ids)
+        metrics={"ndcg", "ndcg_cut_10", "recip_rank"}, psg_ids=psg_ids)
     
-    metrics = evaluator.evaluate_retriever(test_queries, qrels, k=10)
+    metrics = evaluator.evaluate_retriever(test_queries, qrels, k=k)
     
-    logger.info(f"nDCG@{10}: {metrics[f"nDCG@{10}"]}")
-    logger.info(f"MRR@{10}: {metrics[f"MRR@{10}"]}")
+    logger.info(f"nDCG@{k}: {metrics[f"nDCG@{k}"]}")
+    logger.info(f"MRR@{k}: {metrics[f"MRR@{k}"]}")
+    logger.info(f"ndcg_cut_10: {metrics["ndcg_cut_10"]}")
 
 
 if __name__ == '__main__':

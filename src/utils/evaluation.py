@@ -8,6 +8,7 @@ import torch
 from pytrec_eval import RelevanceEvaluator
 from tqdm import tqdm
 from vbll.layers.regression import VBLLReturn
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -81,12 +82,17 @@ class Evaluator:
         results = evaluator.evaluate(run)
         ndcg_at_k = []
         mrr_at_k = []
+        ndcg_cut_10 = []
+
         for _, metrics in results.items():
             ndcg_at_k.append(metrics["ndcg"])
             mrr_at_k.append(metrics["recip_rank"])
+            ndcg_cut_10.append(metrics["ndcg_cut_10"])
+        
         results_agg = {
             f"nDCG@{k}": float(np.mean(ndcg_at_k)),
             f"MRR@{k}": float(np.mean(mrr_at_k)),
+            f"ndcg_cut_10": float(np.mean(ndcg_cut_10))
         }
         logger.info(results_agg)
         return results_agg
