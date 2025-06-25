@@ -3,6 +3,7 @@ from tqdm import tqdm
 import numpy as np
 from omegaconf import OmegaConf
 import torch
+import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import logging
 from utils.indexing import FaissIndex
@@ -38,6 +39,8 @@ def prepare_test_queries(test_queries: list, queries: Dict, data_cfg: DatasetCon
 def uncertainty_score(qry_emb, unc_method="norm"):
     cov = qry_emb.covariance.squeeze()
 
+    if unc_method == "max":
+        return torch.max(qry_emb.variance, dim=1).values
     if unc_method == "norm":
         return torch.sqrt(qry_emb.trace_covariance)
     elif unc_method == "trace":
@@ -168,7 +171,7 @@ def main(run_cfg: RunConfig, embs_dir: str, T: int = 5, rel_mode: str = "dpr"):
         query_dl = create_eval_dataset(msmarco_queries, msmarco_cfg, ood_dataset)
 
         if run_cfg.vbll:
-            for unc_method in ["norm"]:
+            for unc_method in ["max"]:
                 uncertainty_scores, labels = calculate_uncertainty_scores(query_dl, tokenizer, model, device, unc_method=unc_method)
                 logger.info(f"Uncertainty scores calculated using method {unc_method}")
                 report_metrics(uncertainty_scores, labels)

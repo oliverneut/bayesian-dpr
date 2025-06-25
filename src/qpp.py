@@ -25,7 +25,7 @@ import json
 logger = logging.getLogger(__name__)
 
 
-UNC_METHODS = ["norm", "trace", "det", "entropy"]
+UNC_METHODS = ["max", "norm", "trace", "det", "entropy"]
 
 
 def IDF(term, index_reader):
@@ -185,7 +185,9 @@ def avg_max_sum_PMI(qtokens, index_reader, qtoken2did):
 def uncertainty_score(qry_emb, unc_method="norm"):
     cov = qry_emb.covariance.squeeze()
 
-    if unc_method == "norm":
+    if unc_method == "max":
+        return torch.max(qry_emb.variance, dim=1).values
+    elif unc_method == "norm":
         return torch.sqrt(qry_emb.trace_covariance)
     elif unc_method == "trace":
         return qry_emb.trace_covariance
